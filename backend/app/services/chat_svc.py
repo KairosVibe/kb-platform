@@ -636,6 +636,10 @@ async def run_answer(request_id: int, engine: Any | None = None) -> dict[str, An
             usage,
             factory=factory,
         )
+        # 缺口消费：终态登记的 outbox 就地消费（消费者按 request_id 幂等）。
+        from app.services import gap_svc
+
+        await gap_svc.consume_outbox(factory)
         return {"status": status, "result_type": result_type, "error_code": error_code}
     finally:
         if poller is not None:

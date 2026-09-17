@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.config import get_settings
 from app.db.base import utcnow
 from app.db.repository import UnitOfWork
-from app.models import ChatMessage, ChatRequest, MessageSource, ModelCallUsage, QaAudit
+from app.models import ChatMessage, ChatRequest, MessageSource, ModelCallUsage, QaAudit, User
 from app.services import chat_store
 from app.services.ingest_svc import _log
 
@@ -135,6 +135,23 @@ async def finalize_request(
                     status=str(usage.get("status") or "unknown"),
                 )
             )
+
+            # ---- 缺口 outbox（F-08.01 第 4 步）：仅正常 no_evidence/low_confidence；
+            # 服务故障不进缺口（否则运维事故被当知识空白补档）。幂等键 = request_id。----
+            if result.get("result_type") in ("no_evidence", "low_confidence"):
+                from app.services.gap_svc import enqueue_gap_outbox
+
+                dept_id = (
+                    await session.execute(
+                        select(User.dept_id).where(User.id == int(request_row.user_id))
+                    )
+                ).scalar_one_or_none()
+                await enqueue_gap_outbox(
+                    session,
+                    request_id=request_id,
+                    question=request_row.question,
+                    dept_id=int(dept_id) if dept_id is not None else None,
+                )
 
             # ---- 最终事件：与终态同事务（提交后由 SSE 轮询发出）----
             if result["status"] == "failed":

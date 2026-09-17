@@ -68,6 +68,11 @@ EXPECTED_PATHS = {
     "/api/chat/requests/{request_id}/cancel",
     "/api/chat/requests/{request_id}/citations/{no}",
     "/api/chat/suggestions",
+    # M07 知识缺口闭环（F-07.02/03/04 + API-S06；F-07.01 为内部消费者无路由）
+    "/api/knowledge-gaps",
+    "/api/knowledge-gaps/{gap_id}/convert",
+    "/api/knowledge-gaps/{gap_id}/verify",
+    "/api/supplement-tasks/{task_id}/source",
 }
 
 

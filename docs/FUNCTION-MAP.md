@@ -1134,6 +1134,11 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
     - 服务端revision取最近详情；client_*幂等键单次逻辑操作生成，重试复用；409刷新后重新审阅；失败保留输入并定位字段。
     - 流式入口使用H31订阅，不按JSON响应读取；引用点击H35；上传文件夹先H32，权限弹窗先H33。
 
+- **M07 实现状态（2026-09-17）**：**F-07.01—F-07.04 与 API-S06 已实现**（`app/services/gap_svc.py`、`app/api/routes/gap.py`）。路由：`GET /api/knowledge-gaps`、`POST /api/knowledge-gaps/{gap_id}/convert`、`POST /api/supplement-tasks/{task_id}/source`（API-S06）、`POST /api/knowledge-gaps/{gap_id}/verify`；F-07.01 为内部消费者无 HTTP 路由。
+  - **已登记的实现符号**：`gap_svc.enqueue_gap_outbox`（F-08.01 终态事务内登记缺口通知，event_key=`gap:{request_id}` 幂等）、`gap_svc.consume_outbox`（outbox 消费者，逐条 `skip_locked` 领取，失败记 attempts 重试）、`gap_svc.bind_source`（API-S06，gap:handle + 来源读权，禁止绑定不存在/已删除单元）。
+  - **关键语义**：问题指纹去**全部空白与标点**后散列（只折叠空白会让"年假怎么申请？"与"年假 怎么申请"裂成两行——实测）；`(department_key=0, fingerprint)` 表达无部门；服务故障（failed）不登记 outbox；verify 用**原提问用户**的当前身份回放（停用 → blocked），命中补充 unit+version 才关闭。
+  - **已知未实现（不得视为已完成）**：low_confidence 判定未接入（run_answer 目前只产 no_evidence，阈值属 config 演进）；`suggested_category` 自动建议未实现（留空）。
+
 ### M08 审计与数据看板
 
 - 归属：backend/app/services/metrics_svc.py；前端按本模块页面/composable组织。
