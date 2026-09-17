@@ -102,6 +102,47 @@ async def upsert_version_chunks(
         client.close()
 
 
+async def search_similar(config: Any, *, query_vector: list[float], top_k: int) -> list[dict[str, Any]]:
+    """向量检索（H08 路径 A）。返回 `[{unit_id, version, seq, score}]`。
+
+    ★ Milvus 检索**只做预筛**：这里不带授权条件（标量过滤授权不可靠且难维护），
+      授权判定统一在 H08 的 authorize_units 复核——向量层永远不是权限边界。
+    ★ async 签名与调用方（H08）一致：Milvus 客户端是同步的，包在 async 里是
+      为了保持"引擎只 await 提供方"的统一调用形态（首轮实测：同步 def 被 await
+      直接 TypeError——签名一致性不是装饰）。
+    """
+    client = _connect(config)
+    try:
+        name = config.milvus_collection
+        if not client.has_collection(name):
+            return []
+        results = client.search(
+            collection_name=name,
+            data=[query_vector],
+            limit=top_k,
+            output_fields=["unit_id", "version", "seq"],
+        )
+        hits: list[dict[str, Any]] = []
+        for batch in results:
+            for hit in batch:
+                entity = hit.get("entity", {})
+                hits.append(
+                    {
+                        "unit_id": int(entity.get("unit_id", 0)),
+                        "version": int(entity.get("version", 0)),
+                        "seq": int(entity.get("seq", 0)),
+                        "score": float(hit.get("distance", 0.0)),
+                    }
+                )
+        return hits
+    except TaskError:
+        raise
+    except Exception as exc:
+        raise TaskError("VECTOR_SEARCH_FAILED", f"向量检索失败：{exc}", transient=True) from exc
+    finally:
+        client.close()
+
+
 def count_version_chunks(
     config: Any, *, unit_id: int, version: int, expected: int | None = None
 ) -> int:

@@ -59,6 +59,15 @@ EXPECTED_PATHS = {
     "/api/knowledge-units/{unit_id}/enabled",
     "/api/knowledge-units/{unit_id}/acl",
     "/api/acl-entities",
+    # M05 会话检索与流式问答（F-05.01—F-05.09）
+    "/api/sessions",
+    "/api/sessions/{session_id}",
+    "/api/sessions/{session_id}/messages",
+    "/api/chat/requests",
+    "/api/chat/requests/{request_id}/events",
+    "/api/chat/requests/{request_id}/cancel",
+    "/api/chat/requests/{request_id}/citations/{no}",
+    "/api/chat/suggestions",
 }
 
 

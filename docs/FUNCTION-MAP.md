@@ -916,6 +916,13 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
     - 服务端revision取最近详情；client_*幂等键单次逻辑操作生成，重试复用；409刷新后重新审阅；失败保留输入并定位字段。
     - 流式入口使用H31订阅，不按JSON响应读取；引用点击H35；上传文件夹先H32，权限弹窗先H33。
 
+- **M05 实现状态（2026-09-17）**：**F-05.01—F-05.09 已实现**（`app/services/chat_svc.py`、`app/services/chat_store.py`、`app/services/metrics_svc.py`（F-08.01）、`app/engines/retrieval.py`（H08/H09/H10 + §1 类型 `ScoredChunk`/`RetrievalResult`）、`app/providers/generation.py`（H13 + `ModelDelta`）、`app/core/cancel.py`（`CancelSignal`））。路由：`POST/GET /api/sessions`、`PATCH /api/sessions/{id}`、`GET /api/sessions/{id}/messages`、`POST /api/chat/requests`、`GET /api/chat/requests/{id}/events`（**SSE 不套 JSON 外壳**；`Last-Event-ID` 与 `after_seq` 同时提供必须一致）、`POST /api/chat/requests/{id}/cancel`、`GET /api/chat/requests/{id}/citations/{no}`、`GET /api/chat/suggestions`。
+  - **执行模型**：受理 202 后路由层 spawn **后台任务**执行 run_answer（执行侧**从 DB 重装配身份**，撤权立即生效）；崩溃孤儿 running 由 H29 `recover_requests` 条件终结 failed。同键同载荷重放返回 **200 + 原 ID**（新建 202），且**重放不重复执行**；幂等查询先于会话忙检查（否则网络重试在生成期间拿到 409）。
+  - **已登记的实现符号**：`vector_store.search_similar`（H08 路径 A；**async** 签名，Milvus 只做预筛、授权在 authorize_units 复核）、`chat_svc.spawn_answer`（受理后调度后台执行；无事件循环时跳过并告警）。
+  - **H08 第二路现状（诚实边界）**：倒排引擎未建，关键字路为 **MySQL LIKE 召回**（`_keyword_recall`，私有），能被 RRF 融合但不是分词倒排——换引擎只动该函数。H12 rerank 未建（融合排序直出 Top5）。H11 的 usage 未接入 RetrievalResult（用量记 unknown，不伪 0）。
+  - **已实现的安全语义**：全无权 → `denied` 事件（固定提示）+ `rejected` + 受限消息（text=None）；受限 ID 只进 `qa_audit.denied_snapshot`（受控审计）；执行侧无 `ai:ask` → service_error；历史消息经 H05 逐轮再授权，无来源/已无权 → 受限占位；终态唯一事务（请求+消息+来源+审计+用量+done/error 事件，F-08.01）；引用按**已记录版本**读取、当前无权 404。
+  - **已知未实现（不得视为已完成）**：F-06.06 FAQ 路未建（`faq_hit` 分支留待 M06）；进程内事件广播未建（SSE 为 DB 轮询，亚秒级延迟）；事件保留期 410 依赖 `finished_at`（游标校验已实现）。
+
 ### M06 FAQ沉淀审核与缓存
 
 - 归属：backend/app/services/faq_svc.py；前端按本模块页面/composable组织。
