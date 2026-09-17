@@ -428,8 +428,10 @@ async def replace_document(
     session.add(task)
     await session.flush()
 
-    # F-06.07（来源失效）属 M06，FAQ 组件未建——此处无动作可做；
-    # FAQ 命中时逐项"当前来源授权与状态复核"（H06 语义）保证不会读到已替换内容。
+    # F-06.07：来源正文变化 → 相关 published FAQ 转 stale（M06 已落地，欠账补上）。
+    from app.services import faq_svc
+
+    await faq_svc.invalidate_sources(session, unit_id=unit_id, change="content")
     _log(
         session, ctx.user_id, "knowledge.replace_document", "knowledge_unit", unit_id,
         {"content_version": int(unit.content_version), "format": unit.format},
@@ -596,8 +598,10 @@ async def set_enabled(
     new_revision = await _revision_guard(
         session, unit_id=unit_id, expected_revision=expected_revision, enabled=bool(enabled)
     )
-    # F-06.07（启停强制复核 FAQ 来源）属 M06，组件未建——无动作可做；
-    # 活动流失效同理（通知组件属后续里程碑）。
+    # F-06.07：启停强制来源复核 → 相关 published FAQ 转 stale（重新启用须人工复核）。
+    from app.services import faq_svc
+
+    await faq_svc.invalidate_sources(session, unit_id=unit_id, change="disable")
     _log(
         session, ctx.user_id, "knowledge.set_enabled", "knowledge_unit", unit_id,
         before, {"enabled": bool(enabled)},
@@ -652,8 +656,11 @@ async def delete_unit(
     session.add(task)
     await session.flush()
 
-    # 派生内容失效（FAQ 来源转 stale 等）属 F-06.07/M06，组件未建——无动作可做；
+    # F-06.07：删除 → 相关 published FAQ 转 stale（派生内容失效）。
     # H18 物理清理由清理执行器执行（未建），任务停留在 queued 是当前诚实状态。
+    from app.services import faq_svc
+
+    await faq_svc.invalidate_sources(session, unit_id=unit_id, change="delete")
     _log(
         session, ctx.user_id, "knowledge.delete_unit", "knowledge_unit", unit_id,
         {"is_deleted": False, "revision": int(unit.revision)},

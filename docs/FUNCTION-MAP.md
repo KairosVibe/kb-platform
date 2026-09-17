@@ -1056,6 +1056,14 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
   - **边界及错误**：缓存失败不影响DB权威拒绝。
   - **验证**：用AC-06.07-01构造正常数据，AC-06.07-02构造失败/边界；涉及权限追加拒绝与撤权测试，涉及状态追加重试和竞争测试。
 
+- **M06 实现状态（2026-09-17）**：**F-06.01—F-06.07 已实现**（`app/services/faq_svc.py`、`app/engines/mining.py`（H22—H25 + §1 类型 QuestionVector/QuestionCluster/MiningBatch/FaqDraft）、`app/api/routes/faq.py`）。路由：`POST /api/mining/runs`（202 + 后台执行）、`GET /api/mining/runs/{run_id}`（API-S07）、`PATCH /api/faqs/{faq_id}/candidate`、`POST /api/faqs/{faq_id}/publish`、`POST /api/faqs/{faq_id}/status`、`PUT /api/faqs/{faq_id}/cache-enabled`。
+  - **已登记的实现符号**：`faq_svc.create_mining_run`（登记运行，faq:review）、`faq_svc.spawn_mining`（后台调度）、`faq_svc.get_mining_run`（API-S07）、`mining.mark_drafts_done`（H25 组成部分：起草结果回填）。
+  - **聚类（H23）**：**代表中心**聚类（成员只与代表比较，禁止 A-B-C 链）+ **部门×来源单元集合边界**（FAQ 可读性由来源推导，混来源聚类会越聚越宽）。
+  - **起草（H24）**：job_key 稳定（pipeline_version+代表+来源边界），成功结果复用；job 先落 pending、模型调用在事务外、H25 回填——"模型调用不占长事务"。
+  - **匹配（F-06.06）**：精确规范化匹配优先 → 语义候选（小规模即时向量化 + 余弦 ≥0.92）→ 逐项当前来源授权复核（高分无权跳过）；**Faq 无独立 ACL**。仅匹配 `published + cache_enabled`——开关与审核状态独立。
+  - **失效（F-06.07）**：已接入 `knowledge_svc` 的发布替换路径之外的独立调用点（正文替换/删除/停用 → published 转 stale）；ACL 变化无缓存层可逐出（匹配逐次复核 DB 权威），`evicted/cancelled` 恒 0（诚实边界）。
+  - **已知未实现（不得视为已完成）**：FAQ 语义匹配为**即时向量化**（无 FAQ 向量索引）；low_confidence 判定与置信度门槛未接入；真实 DashScope 起草链路未补验（替身已覆盖管线全路径）。
+
 ### M07 知识缺口闭环
 
 - 归属：backend/app/services/gap_svc.py；前端按本模块页面/composable组织。

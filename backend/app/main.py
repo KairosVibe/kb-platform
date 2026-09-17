@@ -15,6 +15,7 @@ from fastapi import FastAPI
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.chat import router as chat_router
+from app.api.routes.faq import router as faq_router
 from app.api.routes.gap import router as gap_router
 from app.api.routes.ingest import router as ingest_router
 from app.api.routes.knowledge import router as knowledge_router
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_router, prefix=settings.api_prefix)
     app.include_router(chat_router, prefix=settings.api_prefix)
     app.include_router(gap_router, prefix=settings.api_prefix)
+    app.include_router(faq_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["运维"], summary="存活与版本")
     async def health() -> dict[str, object]:

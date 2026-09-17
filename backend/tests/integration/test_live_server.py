@@ -73,6 +73,13 @@ EXPECTED_PATHS = {
     "/api/knowledge-gaps/{gap_id}/convert",
     "/api/knowledge-gaps/{gap_id}/verify",
     "/api/supplement-tasks/{task_id}/source",
+    # M06 FAQ 沉淀审核与缓存（F-06.01—F-06.05；F-06.06/07 为内部函数）
+    "/api/mining/runs",
+    "/api/mining/runs/{run_id}",
+    "/api/faqs/{faq_id}/candidate",
+    "/api/faqs/{faq_id}/publish",
+    "/api/faqs/{faq_id}/status",
+    "/api/faqs/{faq_id}/cache-enabled",
 }
 
 
