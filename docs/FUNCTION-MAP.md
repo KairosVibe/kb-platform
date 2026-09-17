@@ -1301,6 +1301,12 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
     - 服务端revision取最近详情；client_*幂等键单次逻辑操作生成，重试复用；409刷新后重新审阅；失败保留输入并定位字段。
     - 流式入口使用H31订阅，不按JSON响应读取；引用点击H35；上传文件夹先H32，权限弹窗先H33。
 
+- **M10 实现状态（2026-09-17）**：
+  - **F-10.01 `resolve_navigation` 已实现**（前端 `src/router/navigation.ts`；菜单过滤 + 进入路由验证 + 按钮校验；刷新身份同步菜单；单测覆盖 F-10.01）。**不以 UI 代替安全边界**——每个后端入口仍独立 H02/H04 校验。
+  - **F-10.02 `render_answer` 已实现**（前端 `src/composables/useMarkdown.ts`；事件序号去重、rAF 批次输出、禁原始 HTML 与危险协议（DOMPurify）、代码高亮复制、引用定位；单测覆盖渲染与安全）。前端 4 个测试文件 **73 passed**（含 H31 分帧 / H33 全空 ACL）。
+  - **F-10.03 `replay_acceptance` 未建独立回放工具（诚实边界）**：契约的场景链路（组织知识建立 → 财务权限负向 → 聚类审核命中 → 缺口补档回放关闭 → 指标核对）已由后端各模块的**端到端集成测试组合覆盖**（`tests/integration/`：M03 受理→M05 问答拒答/命中→M07 缺口闭环各环节均有断言）；独立"一键回放"工具属交付验收阶段工作项。
+  - **F-10.04 `verify_release` 未实现（诚实边界）**：镜像 digest / 迁移 revision / 备份恢复验证依赖容器化交付（D2 阶段），当前不声称。
+
 ### M10 前端交互与交付验收
 
 - 归属：backend/app/services/delivery.py；前端按本模块页面/composable组织。
