@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from app.core.errors import TaskError
 from app.db.base import utcnow
@@ -71,6 +71,18 @@ async def upsert_version(
                     row.text = chunk["text"]
                     row.token_count = int(chunk["token_count"])
                     row.location = chunk["location"]
+
+        # 清理孤儿行：MySQL 中该版本"多出来"的切片（seq 不在本次结果集里）必须删除，
+        # 否则 read_chunks 会展示没有向量、也不属于本次解析结果的幽灵切片。
+        # 场景：切片编辑版本先由服务层预建行，流水线重新解析后边界略有移动。
+        kept_seqs = {int(chunk["seq"]) for chunk in chunks}
+        await session.execute(
+            delete(Chunk).where(
+                Chunk.unit_id == unit_id,
+                Chunk.version == version,
+                Chunk.seq.not_in(kept_seqs),
+            )
+        )
 
     written = await vector_store.upsert_version_chunks(
         config,

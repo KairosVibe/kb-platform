@@ -58,6 +58,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 
@@ -333,6 +334,103 @@ def filter_units(ctx: UserCtx, units: Sequence[UnitState]) -> FilterResult:
         else:
             denied.append(unit.unit_id)
     return FilterResult(allowed_ids=allowed, denied_ids=denied)
+
+
+# ---------------------------------------------------------------- H04（读库侧）
+
+async def authorize_units(
+    session: Any, ctx: UserCtx, unit_ids: Sequence[int]
+) -> tuple[list[int], list[int], list[int], dict[int, int]]:
+    """H04：批量读库装配 `UnitState` 并逐项判定，输出三桶 + 版本表。
+
+    ★ 本函数是授权引擎里**唯一**的 IO 步骤：`judge`/`filter_units` 保持纯函数
+      （可穷举单测），本函数只做"读库 → 组装 → 调用纯函数 → 分桶"。
+      三桶互斥：`denied`（无读权，只进受控审计）、`unavailable`（**有权**但索引
+      不可用——"索引没准备好"不等于"无权"，ARCHITECTURE §4.2）、`allowed`。
+
+    Returns:
+        (allowed, denied, unavailable, versions)；`versions[unit_id] = content_version`
+        供调用方做版本一致性复核（H04 契约第 4 个返回值）。
+    """
+    from sqlalchemy import select
+
+    from app.models import (
+        KnowledgeAclDepartment,
+        KnowledgeAclRole,
+        KnowledgeAclUser,
+        KnowledgeUnit,
+    )
+
+    ids = sorted({int(v) for v in unit_ids})
+    if not ids:
+        return [], [], [], {}
+
+    unit_rows = (
+        (await session.execute(select(KnowledgeUnit).where(KnowledgeUnit.id.in_(ids))))
+        .scalars()
+        .all()
+    )
+    dept_map, role_map, user_map = await _load_acl_maps(session, ids)
+
+    states: list[UnitState] = []
+    for row in unit_rows:
+        unit_id = int(row.id)
+        states.append(
+            UnitState.from_raw(
+                unit_id=unit_id,
+                is_global=row.is_global,
+                department_ids=dept_map.get(unit_id, ()),
+                role_ids=role_map.get(unit_id, ()),
+                user_ids=user_map.get(unit_id, ()),
+                enabled=row.enabled,
+                is_deleted=row.is_deleted,
+                content_version=int(row.content_version),
+                indexed_version=row.indexed_version,
+                index_status=row.index_status,
+                acl_version=int(row.acl_version),
+            )
+        )
+
+    result = filter_units(ctx, states)
+    allowed: list[int] = []
+    unavailable: list[int] = []
+    versions: dict[int, int] = {}
+    for unit in states:
+        versions[unit.unit_id] = unit.content_version
+        if unit.unit_id not in result.allowed_ids:
+            continue
+        # 有读权再看索引用性：以"当前内容版本"为候选版本复核。
+        if is_retrievable(unit, chunk_version=unit.content_version):
+            allowed.append(unit.unit_id)
+        else:
+            unavailable.append(unit.unit_id)
+    return allowed, result.denied_ids, unavailable, versions
+
+
+async def _load_acl_maps(
+    session: Any, unit_ids: list[int]
+) -> tuple[dict[int, set[int]], dict[int, set[int]], dict[int, set[int]]]:
+    """三张 ACL 表各一次 `IN` 查询（避免每单元三次往返的 N+1）。"""
+    from sqlalchemy import select
+
+    from app.models import KnowledgeAclDepartment, KnowledgeAclRole, KnowledgeAclUser
+
+    dept: dict[int, set[int]] = {}
+    role: dict[int, set[int]] = {}
+    user: dict[int, set[int]] = {}
+    for model, target in (
+        (KnowledgeAclDepartment, dept),
+        (KnowledgeAclRole, role),
+        (KnowledgeAclUser, user),
+    ):
+        rows = (
+            await session.execute(
+                select(model.unit_id, model.subject_id).where(model.unit_id.in_(unit_ids))
+            )
+        ).all()
+        for unit_id, subject_id in rows:
+            target.setdefault(int(unit_id), set()).add(int(subject_id))
+    return dept, role, user
 
 
 def sanitize_denied(has_denied: bool) -> RestrictedNotice | None:

@@ -50,6 +50,15 @@ EXPECTED_PATHS = {
     "/api/upload-batches",
     "/api/index-tasks/{task_id}",
     "/api/index-tasks/{task_id}/retry",
+    # M04 知识生命周期与四维权限（F-04.01—F-04.09 + API-S04）
+    "/api/knowledge-units",
+    "/api/knowledge-units/{unit_id}",
+    "/api/knowledge-units/{unit_id}/chunks",
+    "/api/knowledge-units/{unit_id}/versions",
+    "/api/knowledge-units/{unit_id}/chunk-mutations",
+    "/api/knowledge-units/{unit_id}/enabled",
+    "/api/knowledge-units/{unit_id}/acl",
+    "/api/acl-entities",
 }
 
 

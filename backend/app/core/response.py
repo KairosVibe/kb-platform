@@ -75,6 +75,10 @@ ERROR_CODES: dict[str, tuple[int, str]] = {
     "INVALID_ARGUMENT": (status.HTTP_422_UNPROCESSABLE_CONTENT, "请求参数有误"),
     "INVALID_PERM_CODE": (status.HTTP_422_UNPROCESSABLE_CONTENT, "包含未注册的权限码"),
     "EMPTY_FILE": (status.HTTP_422_UNPROCESSABLE_CONTENT, "文件内容为空"),
+    "ACL_ENTITY_INVALID": (
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "授权对象不存在或已停用",
+    ),
     "DEPT_CYCLE": (status.HTTP_422_UNPROCESSABLE_CONTENT, "不能将部门移动到自己的下级"),
     "PASSWORD_LENGTH_INVALID": (
         status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -113,6 +117,10 @@ ERROR_CODES: dict[str, tuple[int, str]] = {
     "FAQ_SOURCE_MISSING": (
         status.HTTP_409_CONFLICT,
         "来源知识单元已删除或变更，请先复核来源",
+    ),
+    "INDEX_NOT_READY": (
+        status.HTTP_409_CONFLICT,
+        "该知识的索引尚未就绪，暂不能启用",
     ),
     "MINING_RUNNING": (status.HTTP_409_CONFLICT, "挖掘任务正在执行中，请稍后再试"),
     # ---- 事件游标过期 410 ----

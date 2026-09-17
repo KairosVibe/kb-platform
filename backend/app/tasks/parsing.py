@@ -59,11 +59,13 @@ class Location:
         }
 
 
-def _estimate_tokens(text: str) -> int:
+def estimate_tokens(text: str) -> int:
     """启发式 token 估计：CJK≈1 token/字，其余≈4 字符/token。
 
-    只用于切窗（H21），真实用量由 H11 的响应 usage 记录——两者口径不同，
-    不要互相替代。
+    只用于切窗（H21）与切片行 `token_count` 的落库口径；真实用量由 H11 的
+    响应 usage 记录——两者口径不同，不要互相替代。
+    （2026-09-17 由私有转公开：F-04.05 切片编辑在服务层预建新版本切片行时
+    需要同一口径，避免两处各写一个估计器造成漂移。）
     """
     cjk = sum(
         1
@@ -209,7 +211,11 @@ def clean_text(
                 merged
                 and merged[-1]
                 and not merged[-1].rstrip().endswith(tuple(_SENTENCE_ENDINGS))
+                # 下一行不是标题/列表/表格/引用行（否则吞掉结构）……
                 and not stripped.startswith(("#", "-", "*", "|", ">", "1.", "(", "（"))
+                # ……且**上一行也不是标题**：标题永远独立成段，
+                # 拼进正文会让"# 薪酬制度"变成"# 薪酬制度第1条……"（实测踩过）。
+                and not merged[-1].startswith("#")
             ):
                 merged[-1] = merged[-1].rstrip() + stripped
             else:
@@ -279,7 +285,7 @@ def split_text(
     seq = 0
     for start, end in segments:
         segment = text[start:end]
-        if _estimate_tokens(segment) <= size:
+        if estimate_tokens(segment) <= size:
             chunks.append(_make_chunk(seq, segment, start, end, locations))
             seq += 1
             continue
@@ -296,10 +302,10 @@ def split_text(
             cursor = window_start
             while cursor < len(units) and tokens < size:
                 unit_text = text[units[cursor][0]: units[cursor][1]]
-                if window and tokens + _estimate_tokens(unit_text) > size:
+                if window and tokens + estimate_tokens(unit_text) > size:
                     break
                 window.append(units[cursor])
-                tokens += _estimate_tokens(unit_text)
+                tokens += estimate_tokens(unit_text)
                 cursor += 1
             if not window:  # 单个子单元就超长：按字符硬切（不静默截断语义，见下）
                 span_start, span_end = units[window_start]
@@ -315,7 +321,7 @@ def split_text(
             back = 0
             while back < len(window) - 1 and back_tokens < overlap:
                 back += 1
-                back_tokens += _estimate_tokens(
+                back_tokens += estimate_tokens(
                     text[window[-back][0]: window[-back][1]]
                 )
             window_start = cursor - back
@@ -333,7 +339,7 @@ def _make_chunk(
     return {
         "seq": seq,
         "text": chunk_text,
-        "token_count": _estimate_tokens(chunk_text),
+        "token_count": estimate_tokens(chunk_text),
         "location": Location(page_no, start, end, None).to_dict(),
     }
 

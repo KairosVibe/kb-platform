@@ -570,7 +570,10 @@ async def run_pipeline(session: AsyncSession, *, task_id: int, lease_token: UUID
         # ---- 解析 / 清洗 / 切片（H19→H20→H21，纯计算）----
         await _set_stage(session, lease, "parsing")
         path = Path(settings.upload_dir) / version_row.file_key
-        raw_text, locations = parse_document(path, unit.format)
+        # 解析格式以**存储文件扩展名**为权威，而不是 unit.format：
+        # F-04.05 切片编辑会把新版本源文件以纯文本形态重存（单元最初可能是
+        # pdf/docx，但编辑后的内容是文本），按单元格式解析必然失败。
+        raw_text, locations = parse_document(path, path.suffix.lstrip(".").lower())
         cleaned, locations, warnings = clean_text(raw_text, locations)
         chunk_config = version_row.chunk_config or {}
         chunks = split_text(

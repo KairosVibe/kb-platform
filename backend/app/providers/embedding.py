@@ -25,7 +25,7 @@ from typing import Any
 import httpx
 
 from app.core.errors import TaskError
-from app.tasks.parsing import _estimate_tokens
+from app.tasks.parsing import estimate_tokens
 
 #: DashScope text-embedding-v3 单条输入的 token 上限（官方文档值）。
 _SINGLE_TEXT_TOKEN_LIMIT = 8000
@@ -43,7 +43,7 @@ async def embed_batches(
         return [], {"prompt_tokens": 0, "total_tokens": 0}, _model_version(config)
 
     for index, text in enumerate(texts):
-        if _estimate_tokens(text) > _SINGLE_TEXT_TOKEN_LIMIT:
+        if estimate_tokens(text) > _SINGLE_TEXT_TOKEN_LIMIT:
             raise TaskError(
                 "CHUNK_TOO_LONG",
                 f"第 {index} 条切片超出单条 token 上限（>{_SINGLE_TEXT_TOKEN_LIMIT}）；"
