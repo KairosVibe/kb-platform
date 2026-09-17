@@ -80,6 +80,9 @@ EXPECTED_PATHS = {
     "/api/faqs/{faq_id}/publish",
     "/api/faqs/{faq_id}/status",
     "/api/faqs/{faq_id}/cache-enabled",
+    # M08 审计与数据看板（F-08.02/F-08.03）
+    "/api/dashboard/summary",
+    "/api/dashboard/charts",
 }
 
 
