@@ -323,7 +323,7 @@ def test_gap_closure_loop(clean_db: None, monkeypatch: pytest.MonkeyPatch) -> No
                 json={"global": True, "depts": [], "roles": [], "users": [],
                       "expected_revision": revision},
             )
-            bound = await client.post(
+            bound = await client.put(
                 f"/api/supplement-tasks/{task_id}/source",
                 headers=_auth(token),
                 json={"unit_id": unit_id, "expected_revision": revision + 1},

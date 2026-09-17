@@ -59,7 +59,7 @@ async def convert_gap(
     return ok(data)
 
 
-@router.post(
+@router.put(
     "/supplement-tasks/{task_id}/source",
     dependencies=[Depends(require_permission("gap:handle"))],
 )
