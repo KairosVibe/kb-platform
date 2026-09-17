@@ -32,6 +32,7 @@ PORT = 8126
 #:   注意收集的是 OpenAPI 的 path 模板（含 `{dept_id}` 这类占位符），不是实际请求 URL。
 EXPECTED_PATHS = {
     "/health",
+    "/ready",
     "/api/auth/login",
     "/api/auth/refresh",
     "/api/auth/logout",
@@ -83,6 +84,9 @@ EXPECTED_PATHS = {
     # M08 审计与数据看板（F-08.02/F-08.03）
     "/api/dashboard/summary",
     "/api/dashboard/charts",
+    # M09 模型配置与运行控制（F-09.01—F-09.04）
+    "/api/model-config",
+    "/api/model-config/probe",
 }
 
 

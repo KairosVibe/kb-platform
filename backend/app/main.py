@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.chat import router as chat_router
+from app.api.routes.config import router as config_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.faq import router as faq_router
 from app.api.routes.gap import router as gap_router
@@ -23,6 +24,10 @@ from app.api.routes.knowledge import router as knowledge_router
 from app.api.routes.org import router as org_router
 from app.core.config import get_settings
 from app.core.response import ok, register_exception_handlers
+from app.db.base import utcnow
+from app.db.repository import UnitOfWork
+from app.db.session import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 #: 版本与 git revision 由**构建时注入**（DEPLOYMENT §2 第 3 条："显式注入版本 ARG 并写 OCI
 #: label；/health 的 git revision 与镜像一致"）。默认值刻意带 `-dev` 后缀，
@@ -49,6 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(gap_router, prefix=settings.api_prefix)
     app.include_router(faq_router, prefix=settings.api_prefix)
     app.include_router(dashboard_router, prefix=settings.api_prefix)
+    app.include_router(config_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["运维"], summary="存活与版本")
     async def health() -> dict[str, object]:
@@ -59,6 +65,15 @@ def create_app() -> FastAPI:
           被读成"进程死了"，进而触发无意义的重启。
         """
         return ok({"status": "ok", "app_version": APP_VERSION, "git_revision": GIT_REVISION})
+
+    @app.get("/ready", tags=["运维"], summary="就绪探针")
+    async def ready(session: AsyncSession = Depends(get_session)) -> dict[str, object]:
+        """F-09.04：就绪探针（内部；不含 secret；外部瞬断只降级 ready 不重启）。"""
+        from app.services import config_svc
+
+        async with UnitOfWork(session).transaction():
+            data = await config_svc.readiness(session, now=utcnow())
+        return ok(data)
 
     return app
 
