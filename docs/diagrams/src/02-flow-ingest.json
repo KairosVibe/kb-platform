@@ -1,0 +1,231 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "知识导入与版本索引 · R3 设计",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "accept",
+      "label": "接收与持久登记"
+    },
+    {
+      "id": "work",
+      "label": "租约执行与索引"
+    },
+    {
+      "id": "guard",
+      "label": "失败与生命周期"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "upload",
+      "lane": "accept",
+      "col": 0,
+      "type": "frontend",
+      "label": "上传与校验",
+      "sublabel": "权限与格式校验",
+      "width": 145
+    },
+    {
+      "id": "register",
+      "lane": "accept",
+      "col": 1,
+      "type": "database",
+      "label": "登记内容与任务",
+      "sublabel": "文件持久化 · DB事务",
+      "width": 145
+    },
+    {
+      "id": "claim",
+      "lane": "work",
+      "col": 1,
+      "type": "backend",
+      "label": "领取任务",
+      "sublabel": "lease_token / 续租",
+      "width": 145
+    },
+    {
+      "id": "parse",
+      "lane": "work",
+      "col": 2,
+      "type": "backend",
+      "label": "解析清洗切片",
+      "sublabel": "版本化稳定切片",
+      "width": 145
+    },
+    {
+      "id": "embed",
+      "lane": "work",
+      "col": 3,
+      "type": "backend",
+      "label": "向量化并写入",
+      "sublabel": "同模型空间 / 幂等 upsert",
+      "width": 145
+    },
+    {
+      "id": "activate",
+      "lane": "work",
+      "col": 4,
+      "type": "security",
+      "label": "条件激活",
+      "sublabel": "版本 / 租约 / 墓碑",
+      "width": 145
+    },
+    {
+      "id": "ready",
+      "lane": "work",
+      "col": 5,
+      "type": "database",
+      "label": "检索可见",
+      "sublabel": "当前版本一致才可读",
+      "width": 145
+    },
+    {
+      "id": "invalid",
+      "lane": "guard",
+      "col": 0,
+      "type": "security",
+      "label": "文件拒绝",
+      "sublabel": "显示原因 / 批次可部分成功",
+      "width": 145
+    },
+    {
+      "id": "retry",
+      "lane": "guard",
+      "col": 2,
+      "type": "backend",
+      "label": "重试或失败",
+      "sublabel": "瞬时退避 / 过期租约恢复",
+      "width": 145
+    },
+    {
+      "id": "stale",
+      "lane": "guard",
+      "col": 4,
+      "type": "security",
+      "label": "废弃旧任务",
+      "sublabel": "旧版本不可激活",
+      "width": 145
+    },
+    {
+      "id": "remove",
+      "lane": "guard",
+      "col": 5,
+      "type": "backend",
+      "label": "删除或替换",
+      "sublabel": "墓碑或 stale / 清理任务",
+      "width": 145
+    }
+  ],
+  "edges": [
+    {
+      "id": "upload-register",
+      "from": "upload",
+      "to": "register",
+      "role": "main",
+      "label": "校验通过"
+    },
+    {
+      "id": "upload-invalid",
+      "from": "upload",
+      "to": "invalid",
+      "role": "error",
+      "label": "不支持 / 损坏",
+      "variant": "security"
+    },
+    {
+      "id": "register-claim",
+      "from": "register",
+      "to": "claim",
+      "role": "async",
+      "label": "异步领取",
+      "variant": "dashed"
+    },
+    {
+      "id": "claim-parse",
+      "from": "claim",
+      "to": "parse",
+      "role": "main"
+    },
+    {
+      "id": "parse-embed",
+      "from": "parse",
+      "to": "embed",
+      "role": "main"
+    },
+    {
+      "id": "embed-activate",
+      "from": "embed",
+      "to": "activate",
+      "role": "main"
+    },
+    {
+      "id": "activate-ready",
+      "from": "activate",
+      "to": "ready",
+      "role": "main",
+      "label": "条件满足"
+    },
+    {
+      "id": "parse-retry",
+      "from": "parse",
+      "to": "retry",
+      "role": "error",
+      "label": "处理失败",
+      "variant": "security"
+    },
+    {
+      "id": "retry-claim",
+      "from": "retry",
+      "to": "claim",
+      "role": "return",
+      "label": "可重试 / 租约恢复"
+    },
+    {
+      "id": "activate-stale",
+      "from": "activate",
+      "to": "stale",
+      "role": "error",
+      "label": "条件失效",
+      "variant": "security"
+    },
+    {
+      "id": "ready-remove",
+      "from": "ready",
+      "to": "remove",
+      "role": "branch",
+      "label": "管理员变更"
+    }
+  ],
+  "mainPath": [
+    "upload",
+    "register",
+    "claim",
+    "parse",
+    "embed",
+    "activate",
+    "ready"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "索引一致性",
+      "items": [
+        "删除先墓碑再清理；替换后旧切片不可答，新版本重走登记流程。",
+        "向量化与写入异常也进入重试；永久错误或次数耗尽终止。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "权限与模型",
+      "items": [
+        "上传不自动赋予创建者读权；ACL 变更不重做 embedding。",
+        "严禁用不同 embedding 模型直接查询旧向量空间。"
+      ]
+    }
+  ]
+}

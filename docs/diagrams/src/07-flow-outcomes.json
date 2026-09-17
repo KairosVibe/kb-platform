@@ -1,0 +1,167 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "问答结果分流与统一审计 · R3 设计",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "answer",
+      "label": "正常证据与回答"
+    },
+    {
+      "id": "reject",
+      "label": "受限与缺口"
+    },
+    {
+      "id": "error",
+      "label": "故障与取消"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "classify",
+      "lane": "answer",
+      "col": 0,
+      "label": "结果分类",
+      "sublabel": "来自图 03",
+      "type": "backend",
+      "width": 145
+    },
+    {
+      "id": "answer",
+      "lane": "answer",
+      "col": 1,
+      "label": "有权答案",
+      "sublabel": "证据充分 / FAQ命中",
+      "type": "backend",
+      "width": 145
+    },
+    {
+      "id": "terminal",
+      "lane": "answer",
+      "col": 4,
+      "label": "提交终态与审计",
+      "sublabel": "事件持久化后安全发送",
+      "type": "database",
+      "width": 145
+    },
+    {
+      "id": "restricted",
+      "lane": "reject",
+      "col": 1,
+      "label": "全部受限",
+      "sublabel": "固定安全提示",
+      "type": "security",
+      "width": 145
+    },
+    {
+      "id": "gap",
+      "lane": "reject",
+      "col": 2,
+      "label": "无证据或低置信",
+      "sublabel": "正常检索结果",
+      "type": "backend",
+      "width": 145
+    },
+    {
+      "id": "register",
+      "lane": "reject",
+      "col": 3,
+      "label": "登记知识缺口",
+      "sublabel": "request_id 去重",
+      "type": "database",
+      "width": 145
+    },
+    {
+      "id": "fault",
+      "lane": "error",
+      "col": 1,
+      "label": "故障或取消",
+      "sublabel": "错误说明 / 不建缺口",
+      "type": "security",
+      "width": 145
+    }
+  ],
+  "edges": [
+    {
+      "id": "classify-answer",
+      "from": "classify",
+      "to": "answer",
+      "label": "可回答"
+    },
+    {
+      "id": "answer-terminal",
+      "from": "answer",
+      "to": "terminal",
+      "label": "回答完成"
+    },
+    {
+      "id": "classify-restricted",
+      "from": "classify",
+      "to": "restricted",
+      "label": "无权"
+    },
+    {
+      "id": "restricted-terminal",
+      "from": "restricted",
+      "to": "terminal",
+      "label": "拒答"
+    },
+    {
+      "id": "classify-gap",
+      "from": "classify",
+      "to": "gap",
+      "label": "证据不足"
+    },
+    {
+      "id": "gap-register",
+      "from": "gap",
+      "to": "register",
+      "label": "聚合"
+    },
+    {
+      "id": "register-terminal",
+      "from": "register",
+      "to": "terminal",
+      "label": "安全提示"
+    },
+    {
+      "id": "classify-fault",
+      "from": "classify",
+      "to": "fault",
+      "label": "失败 / 取消"
+    },
+    {
+      "id": "fault-terminal",
+      "from": "fault",
+      "to": "terminal",
+      "label": "失败终态"
+    }
+  ],
+  "mainPath": [
+    "classify",
+    "answer",
+    "terminal"
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "出口规则",
+      "items": [
+        "部分受限保留有权答案，并追加安全提示；拒答不调用模型猜测。",
+        "初始审计在接受请求时创建；done/error 必须在终态提交之后发送。"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "缺口边界",
+      "items": [
+        "仅正常无证据或低置信进入缺口；无权、服务故障和取消不入池。",
+        "FAQ 命中也须来源授权；任何结果都不回传受限标题、ID 或 ACL。"
+      ]
+    }
+  ]
+}

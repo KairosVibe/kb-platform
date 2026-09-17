@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "D:\\codex\\deliverables\\kb-r3-diagrams\\src\\05-flow-stream.json",
+  "output": "D:\\codex\\deliverables\\kb-r3-diagrams\\05-流式恢复与撤权.html",
+  "specification": {
+    "sha256": "0d4632cf5c71f3765c851ad0f6eabe9bfdf488737e3f845a72ddd6d6a51e7127",
+    "bytes": 4537
+  },
+  "artifact": {
+    "sha256": "bdcf18dac9f7247267be7a6c04efb60463b427036de97d74bc4538904f60beb1",
+    "bytes": 728762
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

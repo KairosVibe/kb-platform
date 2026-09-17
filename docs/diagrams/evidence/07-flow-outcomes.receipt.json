@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "D:\\codex\\deliverables\\kb-r3-diagrams\\src\\07-flow-outcomes.json",
+  "output": "D:\\codex\\deliverables\\kb-r3-diagrams\\07-问答结果分流.html",
+  "specification": {
+    "sha256": "4b92d8534e5331e01646fd87b2276f18542a8a2d2f2e303498d522823f994352",
+    "bytes": 3742
+  },
+  "artifact": {
+    "sha256": "25882b588537e05fb8d0687291e4fd123ba7dbed31b35f135ef8f8099b583ff5",
+    "bytes": 725507
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

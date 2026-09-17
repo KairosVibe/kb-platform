@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "D:\\codex\\deliverables\\kb-r3-diagrams\\src\\03-flow-chat.json",
+  "output": "D:\\codex\\deliverables\\kb-r3-diagrams\\03-鉴权问答流程.html",
+  "specification": {
+    "sha256": "4d826186ae85d78a6e6595a5fe9d33d0a548801f7cccf17aa06e0a82ebd39b18",
+    "bytes": 3916
+  },
+  "artifact": {
+    "sha256": "fc1d17048554daea21215691a4d4abbe5be9d09a44b7a85088825cb3bb30100a",
+    "bytes": 725106
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

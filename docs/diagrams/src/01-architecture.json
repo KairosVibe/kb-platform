@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "通用知识管理与问答平台 · R3 设计",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1380,
+      740
+    ]
+  },
+  "components": [
+    {
+      "id": "console",
+      "type": "frontend",
+      "label": "Vue 控制台",
+      "sublabel": "三类角色 · 问答与管理",
+      "pos": [
+        33,
+        330
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "API 入口",
+      "sublabel": "登录态 · RBAC · 安全响应",
+      "pos": [
+        301,
+        330
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "business",
+      "type": "backend",
+      "label": "业务编排",
+      "sublabel": "知识 / 问答 / FAQ / 运营",
+      "pos": [
+        583,
+        330
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "adapter",
+      "type": "backend",
+      "label": "模型适配层",
+      "sublabel": "embedding / rerank / 生成",
+      "pos": [
+        865,
+        330
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "model",
+      "type": "external",
+      "label": "模型服务",
+      "sublabel": "允许的本地或外部服务",
+      "pos": [
+        1137,
+        330
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "access",
+      "type": "security",
+      "label": "动态权限引擎",
+      "sublabel": "四维 OR · 默认拒绝",
+      "pos": [
+        301,
+        90
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL 权威状态",
+      "sublabel": "ACL / 版本 / 任务 / 事件",
+      "pos": [
+        583,
+        90
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "cache",
+      "type": "database",
+      "label": "进程内可重建缓存",
+      "sublabel": "FAQ 内容 / 关键词倒排",
+      "pos": [
+        865,
+        90
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "files",
+      "type": "database",
+      "label": "持久文件存储",
+      "sublabel": "原文与版本文件",
+      "pos": [
+        301,
+        590
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "后台任务执行器",
+      "sublabel": "索引 / 清理 / 日志挖掘",
+      "pos": [
+        583,
+        590
+      ],
+      "size": [
+        178,
+        76
+      ]
+    },
+    {
+      "id": "vector",
+      "type": "database",
+      "label": "Milvus 向量索引",
+      "sublabel": "Lite 或独立部署配置",
+      "pos": [
+        865,
+        590
+      ],
+      "size": [
+        178,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "console-entry",
+      "from": "console",
+      "to": "entry",
+      "label": "HTTPS / SSE"
+    },
+    {
+      "id": "entry-business",
+      "from": "entry",
+      "to": "business",
+      "label": "服务调用"
+    },
+    {
+      "id": "entry-access",
+      "from": "entry",
+      "to": "access",
+      "label": "入口及出口校验"
+    },
+    {
+      "id": "access-mysql",
+      "from": "access",
+      "to": "mysql",
+      "label": "读取当前权限"
+    },
+    {
+      "id": "business-mysql",
+      "from": "business",
+      "to": "mysql",
+      "label": "事务 / 版本复核"
+    },
+    {
+      "id": "business-adapter",
+      "from": "business",
+      "to": "adapter",
+      "label": "授权重排与生成",
+      "labelDy": 12
+    },
+    {
+      "id": "adapter-model",
+      "from": "adapter",
+      "to": "model",
+      "label": "Provider 调用"
+    },
+    {
+      "id": "business-cache",
+      "from": "business",
+      "to": "cache",
+      "label": "候选 / 每次复核"
+    },
+    {
+      "id": "business-worker",
+      "from": "business",
+      "to": "worker",
+      "label": "登记任务后唤醒",
+      "labelDy": 100
+    },
+    {
+      "id": "worker-files",
+      "from": "worker",
+      "to": "files",
+      "label": "持久文件读写"
+    },
+    {
+      "id": "worker-vector",
+      "from": "worker",
+      "to": "vector",
+      "label": "版本向量写入",
+      "labelDy": 40
+    },
+    {
+      "id": "business-vector",
+      "from": "business",
+      "to": "vector",
+      "label": "召回候选"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "单实例分层单体",
+      "items": [
+        "API、业务、权限、适配、缓存及执行器同进程；非微服务。",
+        "所有正文出口调用权限引擎；图中连线为主要依赖。"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "任务与数据",
+      "items": [
+        "任务从 MySQL 租约领取；内存唤醒不是持久队列。",
+        "执行器经适配层向量化；索引和缓存可重建。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "安全与状态",
+      "items": [
+        "外部 embedding 需数据出域许可；重排/生成仅获授权证据。",
+        "这是目标设计，不代表代码已实现或生产已验收。"
+      ]
+    }
+  ]
+}

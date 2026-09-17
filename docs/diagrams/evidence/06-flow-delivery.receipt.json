@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "D:\\codex\\deliverables\\kb-r3-diagrams\\src\\06-flow-delivery.json",
+  "output": "D:\\codex\\deliverables\\kb-r3-diagrams\\06-文档确认与交付.html",
+  "specification": {
+    "sha256": "8fd6133c7d1b648a3f37fd5587f7c217f51f4b69242663fc1009c5ce1a9faad4",
+    "bytes": 4231
+  },
+  "artifact": {
+    "sha256": "dd518cc14b4854dee22a90d7b650a305f980c39cd98724aabeaef8d98b66d5d6",
+    "bytes": 726188
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

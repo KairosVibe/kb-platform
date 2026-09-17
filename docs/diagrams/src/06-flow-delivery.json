@@ -1,0 +1,189 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "文档确认与工程交付 · R3 设计",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "design",
+      "label": "当前：文档梳理"
+    },
+    {
+      "id": "build",
+      "label": "确认后才进入开发"
+    },
+    {
+      "id": "proof",
+      "label": "验证与项目证据"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "scope",
+      "lane": "design",
+      "col": 0,
+      "type": "frontend",
+      "label": "通用平台范围",
+      "sublabel": "三类角色 · 通用范围",
+      "width": 145
+    },
+    {
+      "id": "contract",
+      "lane": "design",
+      "col": 1,
+      "type": "backend",
+      "label": "规格与图文对齐",
+      "sublabel": "权限 / 状态 / 接口",
+      "width": 145
+    },
+    {
+      "id": "confirm",
+      "lane": "design",
+      "col": 2,
+      "type": "security",
+      "label": "用户确认",
+      "sublabel": "明确未决项与开发范围",
+      "width": 145
+    },
+    {
+      "id": "core",
+      "lane": "build",
+      "col": 2,
+      "type": "backend",
+      "label": "最小链路贯通",
+      "sublabel": "登录与授权问答",
+      "width": 145
+    },
+    {
+      "id": "complete",
+      "lane": "build",
+      "col": 3,
+      "type": "backend",
+      "label": "工程与运营闭环",
+      "sublabel": "任务 / SSE / FAQ",
+      "width": 145
+    },
+    {
+      "id": "eval",
+      "lane": "proof",
+      "col": 3,
+      "type": "backend",
+      "label": "质量与安全评测",
+      "sublabel": "保留集 / 正反例 / 故障",
+      "width": 145
+    },
+    {
+      "id": "deploy",
+      "lane": "proof",
+      "col": 4,
+      "type": "backend",
+      "label": "干净部署与恢复",
+      "sublabel": "环境与版本 / 实际结果",
+      "width": 145
+    },
+    {
+      "id": "evidence",
+      "lane": "proof",
+      "col": 5,
+      "type": "database",
+      "label": "演示与简历证据",
+      "sublabel": "实做实测 · 明确限制",
+      "width": 145
+    },
+    {
+      "id": "revise",
+      "lane": "design",
+      "col": 3,
+      "type": "security",
+      "label": "继续修订文档",
+      "sublabel": "确认未通过不开发",
+      "width": 145
+    }
+  ],
+  "edges": [
+    {
+      "id": "scope-contract",
+      "from": "scope",
+      "to": "contract",
+      "role": "main"
+    },
+    {
+      "id": "contract-confirm",
+      "from": "contract",
+      "to": "confirm",
+      "role": "main"
+    },
+    {
+      "id": "confirm-core",
+      "from": "confirm",
+      "to": "core",
+      "role": "main",
+      "label": "已确认"
+    },
+    {
+      "id": "confirm-revise",
+      "from": "confirm",
+      "to": "revise",
+      "role": "error",
+      "label": "未确认",
+      "variant": "security"
+    },
+    {
+      "id": "core-complete",
+      "from": "core",
+      "to": "complete",
+      "role": "main"
+    },
+    {
+      "id": "complete-eval",
+      "from": "complete",
+      "to": "eval",
+      "role": "main"
+    },
+    {
+      "id": "eval-deploy",
+      "from": "eval",
+      "to": "deploy",
+      "role": "main",
+      "label": "达到门槛"
+    },
+    {
+      "id": "deploy-evidence",
+      "from": "deploy",
+      "to": "evidence",
+      "role": "main",
+      "label": "恢复验证通过"
+    }
+  ],
+  "mainPath": [
+    "scope",
+    "contract",
+    "confirm",
+    "core",
+    "complete",
+    "eval",
+    "deploy",
+    "evidence"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "原始需求不删减",
+      "items": [
+        "客服与财务只是演示夹具；不增加电商交易或售后专用工作台。",
+        "当前仅文档修订；尚未开始业务开发或完成验收。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "证据边界",
+      "items": [
+        "评测失败返回对应实现/规格修复；不删除失败用例。",
+        "自部署不是企业上线；模拟负载不是用户量；无真实收益不写降本比例。"
+      ]
+    }
+  ]
+}

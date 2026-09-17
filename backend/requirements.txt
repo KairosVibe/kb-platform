@@ -1,0 +1,41 @@
+# 后端依赖清单（2026-09-16，M1-6 补齐）
+#
+# 背景：本仓库 backend 此前**没有任何依赖清单**（无 pyproject.toml / requirements.txt），
+# 但测试与运行实际依赖 pydantic、pyjwt、bcrypt 等；持久层落地前必须先把依赖声明补上，
+# 否则"能跑"依赖的是某台机器的全局环境，不是可复现工程。
+#
+# 版本号为本机**实测值**，不是推测：
+#   python -c "import importlib.metadata as m; print(m.version('SQLAlchemy'))"
+#
+# 安装：pip install -r backend/requirements.txt
+# 已知环境现状：当前后端运行在全局解释器（D:\anaconda3\python.exe，Python 3.12.7），
+#   尚未建立独立虚拟环境——**建立 venv 属后续环境工作项，不在本次改动内**。
+
+# ---- Web 框架 ----
+fastapi==0.139.0
+uvicorn==0.52.4
+pydantic==2.12.5
+pydantic-settings==2.15.0
+
+# ---- 持久层（DDL 由 Alembic 生成，目标 MySQL 8.0.26；DATA-CONTRACTS §5）----
+SQLAlchemy==2.0.52
+alembic==1.18.4
+aiomysql==0.3.2
+PyMySQL==1.2.0
+greenlet==3.3.0
+
+# ---- 安全 ----
+PyJWT==2.10.1
+bcrypt==5.0.0
+
+# ---- 测试 ----
+pytest==9.0.3
+httpx==0.28.1
+
+# ★★ 以下两项在本机**当前未安装**，属异步/数据库用例的前置条件：
+#   - pytest-asyncio：pytest.ini 已设 asyncio_mode=auto，异步用例没有它无法执行；
+#   - aiosqlite：仅作为"一次性测试库"候选（SQLite 不能替代 MySQL 行为验证）。
+#   ★ 在安装它们之前，**异步与仓储用例不得声称通过**；
+#     元数据体检（tests/test_models_metadata.py）是同步用例，不需要这两项。
+pytest-asyncio>=0.23.0
+aiosqlite>=0.20.0

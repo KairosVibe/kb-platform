@@ -1,0 +1,19 @@
+# 本地环境变量与密钥：**不进版本库**
+#
+# 依据 DEPLOYMENT §2 第 4 条（secret 运行时注入，不进镜像/git/日志）与 §9.2。
+# 仓库此前没有任何 .gitignore，"凭据不进版本库"这条要求没有机制保障——本文件补上该机制。
+# 注意：.env.example 是**版本库内的声明**，必须保留（故不在忽略之列）。
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 本地数据与产物（milvus_lite 数据文件、上传件等）
+data/

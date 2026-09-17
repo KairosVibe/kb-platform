@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "D:\\codex\\deliverables\\kb-r3-diagrams\\src\\04-flow-mining.json",
+  "output": "D:\\codex\\deliverables\\kb-r3-diagrams\\04-沉淀闭环流程.html",
+  "specification": {
+    "sha256": "87018e0930024e48f4611810e11d92187a18c9559dc2b8465aea9fc0b83b1a64",
+    "bytes": 5081
+  },
+  "artifact": {
+    "sha256": "04f795c6450978fca56e048093f8c6fce480f70772df5c428dc0afbde8cb6dcf",
+    "bytes": 730637
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

@@ -1,0 +1,129 @@
+# 中间件承载（D-08）：VM 上的 Milvus standalone + Neo4j
+#
+# ★ 来源与权威性（2026-09-16）
+#   本文件是 VM 上**正在运行**的 `/root/rag/docker-compose.yml` 的逐项对齐版本
+#   （该 compose 自 2026-08-23 起实际运行约 24 天，含真实 collection 数据）。
+#   它是本仓库对"中间件应是什么样"的声明，**不是**一份建议稿。
+#
+#   ⚠️ 曾有一版按文档重建的 compose（镜像用 bitnami/etcd、minio/minio:RELEASE.2023-…、
+#      milvus v2.4.15、neo4j 5.26-community）。该版**镜像坐标在本机并不存在**：
+#      实测 `bitnami/etcd:3.5` 报 manifest not found、`minio/minio:RELEASE.2023-03-20T20-16-18Z`
+#      报 pull access denied，而 milvus v2.4.15 / neo4j 5.26-community 本机也没有。
+#      **凡本文件与文档不一致处，以本文件（= VM 实况）为准。**
+#
+# 目标机器：CentOS 7 x86_64、4 核、3.7GB 内存 + 3.9GB swap、Docker 26.1.4 / Compose v2.27.1
+# 依据：docs/DEPLOYMENT.md §9.1、docs/FORMAT-ACCEPTANCE.md 参数表 D-08
+#
+# ★ 三条必须知道的约束：
+#
+# 1) **数据在 bind mount 的 `./volumes/` 下，且已有历史数据**。
+#    不要改成 named volume——那等于换一份空数据，"看不到旧数据"会被误判成故障。
+#
+# 2) **9091 不映射到宿主**：Milvus 的 9091 只在容器网络内供 healthcheck 使用。
+#    从宿主机 `curl http://192.168.62.128:9091/healthz` 会连接被拒，**这是预期行为**，
+#    不代表 Milvus 不健康；健康状态请以 `docker compose ps` 为准。
+#    同理 MinIO 控制台（19081）与 Attu 之外的管理端口也未对外发布。
+#
+# 3) **内存必须显式限**（`deploy.resources.limits.memory`）。整机仅 3.7GB，
+#    不加限制时 OOM killer 会挑占用最大的进程，可能命中 sshd 以外的关键进程。
+#    实测五容器合计 used 约 1.6GB，可行。**建议把 VM 内存提到 8GB**（宿主机有 31.8GB）。
+#
+# ★ 口令：`NEO4J_PASSWORD` 由同目录 `.env` 提供（**不进版本库**），依据 DEPLOYMENT §2 第 4 条。
+#   注意当前写法 `${NEO4J_PASSWORD}` **没有 `:?` 断言**——`.env` 缺失时会以空口令启动而非报错。
+#   加固建议见 README §7（尚未在 VM 落地，以免改动正在运行的部署）。
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.18
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - ./volumes/etcd:/etcd
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - ./volumes/minio:/minio_data
+    command: minio server /minio_data --console-address ":19081"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  milvus:
+    image: milvusdb/milvus:v2.5.5
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MILVUS_MEMORY_LIMIT: 2147483648
+    volumes:
+      - ./volumes/milvus:/var/lib/milvus
+    ports:
+      # 19530 = gRPC，后端连接此端口。9091 有意不对外映射（见文件头第 2 条）。
+      - "19530:19530"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    depends_on:
+      - etcd
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 150s
+      timeout: 20s
+      retries: 3
+
+  neo4j:
+    image: neo4j:5.21.0
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_dbms_memory_pagecache_size: 512m
+    volumes:
+      - ./volumes/neo4j:/data
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
+      interval: 30s
+      start_period: 60s
+      timeout: 20s
+      retries: 3
+
+  attu:
+    image: zilliz/attu:v2.5.10
+    environment:
+      MILVUS_URL: milvus:19530
+    ports:
+      # Attu 容器内监听 3000；宿主 3000 已被占用，故映射到 18080。
+      - "18080:3000"
+    depends_on:
+      - milvus

@@ -1,0 +1,166 @@
+/**
+ * 设计令牌（FRONTEND-SPEC §7）。唯一来源：docs/FRONTEND-SPEC.md §7.2—§7.5。
+ * 只承载表现层取值，不含任何权限/安全语义。所有组件必须取用变量，不得内联色值。
+ */
+:root {
+  /* §7.2 颜色令牌 —— 亮色 */
+  --kb-bg: #f5f7fa;
+  --kb-surface: #ffffff;
+  --kb-surface-2: #fafbfc;
+  --kb-border: #e4e7ed;
+  --kb-text: #1f2329;
+  --kb-text-2: #606266;
+  --kb-text-3: #909399;
+  --kb-primary: #1d4ed8;
+  --kb-primary-hover: #2563eb;
+  --kb-primary-soft: #e8efff;
+  --kb-success: #059669;
+  --kb-success-soft: #e6f5f0;
+  --kb-warning: #d97706;
+  --kb-warning-soft: #fdf3e4;
+  --kb-danger: #dc2626;
+  --kb-danger-soft: #fdeaea;
+  --kb-info: #64748b;
+  --kb-info-soft: #eef1f5;
+  --kb-focus: rgba(29, 78, 216, 0.35);
+
+  /* §7.7 图表分类色板（8 色） */
+  --kb-c1: #1d4ed8;
+  --kb-c2: #0891b2;
+  --kb-c3: #059669;
+  --kb-c4: #d97706;
+  --kb-c5: #dc2626;
+  --kb-c6: #7c3aed;
+  --kb-c7: #db2777;
+  --kb-c8: #64748b;
+
+  /* §7.3 字体 */
+  --kb-font: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", Roboto, "Helvetica Neue", sans-serif;
+  --kb-font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+  --kb-fs-12: 12px;
+  --kb-fs-13: 13px;
+  --kb-fs-14: 14px;
+  --kb-fs-16: 16px;
+  --kb-fs-20: 20px;
+  --kb-fs-24: 24px;
+  --kb-fs-32: 32px;
+  --kb-lh: 1.5;
+
+  /* §7.4 间距基准 4px */
+  --kb-sp-1: 4px;
+  --kb-sp-2: 8px;
+  --kb-sp-3: 12px;
+  --kb-sp-4: 16px;
+  --kb-sp-6: 24px;
+  --kb-sp-8: 32px;
+  --kb-sp-12: 48px;
+
+  /* §7.4 圆角 */
+  --kb-r-1: 2px;
+  --kb-r-2: 4px;
+  --kb-r-3: 6px;
+  --kb-r-4: 8px;
+  --kb-r-full: 999px;
+
+  /* §7.4 阴影三级 */
+  --kb-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --kb-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --kb-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.16);
+
+  /* §7.5 布局 */
+  --kb-sidebar-w: 220px;
+  --kb-sidebar-w-collapsed: 64px;
+  --kb-topbar-h: 56px;
+  --kb-row-h: 40px;
+  --kb-row-h-compact: 32px;
+
+  /* §7.5 断点（供文档/JS 引用，CSS 侧用 @media 字面量） */
+  --kb-bp-lg: 1440px;
+  --kb-bp-md: 1024px;
+  --kb-bp-sm: 768px;
+}
+
+html.dark {
+  /* §7.2 颜色令牌 —— 暗色 */
+  --kb-bg: #111418;
+  --kb-surface: #1a1f26;
+  --kb-surface-2: #20262e;
+  --kb-border: #2b323c;
+  --kb-text: #e6e8eb;
+  --kb-text-2: #a3a6ad;
+  --kb-text-3: #7c848f;
+  --kb-primary: #3b82f6;
+  --kb-primary-hover: #60a5fa;
+  --kb-primary-soft: #1b2a44;
+  --kb-success: #10b981;
+  --kb-success-soft: #14302a;
+  --kb-warning: #f59e0b;
+  --kb-warning-soft: #382a12;
+  --kb-danger: #ef4444;
+  --kb-danger-soft: #3a1d1d;
+  --kb-info: #94a3b8;
+  --kb-info-soft: #232a33;
+  --kb-focus: rgba(59, 130, 246, 0.4);
+
+  --kb-c1: #60a5fa;
+  --kb-c2: #22d3ee;
+  --kb-c3: #34d399;
+  --kb-c4: #fbbf24;
+  --kb-c5: #f87171;
+  --kb-c6: #a78bfa;
+  --kb-c7: #f472b6;
+  --kb-c8: #94a3b8;
+
+  --kb-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --kb-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --kb-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* 状态语义映射（FRONTEND-SPEC §7.2）：颜色只是辅助，雏标必须同时带文字标签。 */
+.kb-state-pending,
+.kb-state-retry_wait,
+.kb-state-queued,
+.kb-state-open {
+  --kb-state: var(--kb-warning);
+  --kb-state-soft: var(--kb-warning-soft);
+}
+.kb-state-indexed,
+.kb-state-succeeded,
+.kb-state-published,
+.kb-state-closed {
+  --kb-state: var(--kb-success);
+  --kb-state-soft: var(--kb-success-soft);
+}
+.kb-state-stale,
+.kb-state-superseded,
+.kb-state-offline,
+.kb-state-candidate,
+.kb-state-processing,
+.kb-state-rejected {
+  --kb-state: var(--kb-info);
+  --kb-state-soft: var(--kb-info-soft);
+}
+.kb-state-failed,
+.kb-state-service_error {
+  --kb-state: var(--kb-danger);
+  --kb-state-soft: var(--kb-danger-soft);
+}
+.kb-state-running,
+.kb-state-accepted,
+.kb-state-answered,
+.kb-state-faq_hit {
+  --kb-state: var(--kb-primary);
+  --kb-state-soft: var(--kb-primary-soft);
+}
+/* 受限是正常业务结果，不是系统错误 —— 用 warning 而非 danger（§7.2） */
+.kb-state-access_restricted {
+  --kb-state: var(--kb-warning);
+  --kb-state-soft: var(--kb-warning-soft);
+}
+.kb-state-no_evidence,
+.kb-state-low_confidence,
+.kb-state-cancelled,
+.kb-state-completed {
+  --kb-state: var(--kb-info);
+  --kb-state-soft: var(--kb-info-soft);
+}

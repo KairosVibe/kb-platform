@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "D:\\codex\\deliverables\\kb-r3-diagrams\\src\\01-architecture.json",
+  "output": "D:\\codex\\deliverables\\kb-r3-diagrams\\01-系统架构.html",
+  "specification": {
+    "sha256": "e25a13ab4556578c0bec4a6e5bbc948c23b90504bdff7849b63eac6511e447ea",
+    "bytes": 5574
+  },
+  "artifact": {
+    "sha256": "55a00068d1c8b1eb5e6b17355e18a0440cea2732a79f80525323d4e6742bee4c",
+    "bytes": 732405
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

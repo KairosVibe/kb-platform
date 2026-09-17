@@ -1,0 +1,13 @@
+{
+  "files": 72,
+  "markdown_links": 72,
+  "user_stories": 60,
+  "acceptance_cases": 180,
+  "functions": 60,
+  "function_http_routes": 48,
+  "supplemental_api_routes": 7,
+  "diagrams": 7,
+  "business_code_changed": false,
+  "db_migrations_executed": false,
+  "model_evaluation_run": false
+}

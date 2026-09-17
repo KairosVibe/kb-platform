@@ -1,0 +1,179 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "鉴权检索与问答 · R3 设计",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "fast",
+      "label": "接收与 FAQ 快路径"
+    },
+    {
+      "id": "rag",
+      "label": "授权检索与生成"
+    },
+    {
+      "id": "end",
+      "label": "安全分流与输出"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "request",
+      "lane": "fast",
+      "col": 0,
+      "type": "frontend",
+      "label": "接受唯一请求",
+      "sublabel": "登录 / 幂等 / 审计",
+      "width": 145
+    },
+    {
+      "id": "faq",
+      "lane": "fast",
+      "col": 1,
+      "type": "security",
+      "label": "匹配 FAQ",
+      "sublabel": "逐一复核来源",
+      "width": 145
+    },
+    {
+      "id": "recall",
+      "lane": "rag",
+      "col": 1,
+      "type": "backend",
+      "label": "混合候选召回",
+      "sublabel": "向量 + 关键词 / 20→100",
+      "width": 145
+    },
+    {
+      "id": "filter",
+      "lane": "rag",
+      "col": 2,
+      "type": "security",
+      "label": "状态版本与鉴权",
+      "sublabel": "四维 OR / 默认拒绝",
+      "width": 145
+    },
+    {
+      "id": "rank",
+      "lane": "rag",
+      "col": 3,
+      "type": "backend",
+      "label": "有权融合与重排",
+      "sublabel": "RRF / 有权 Top5",
+      "width": 145
+    },
+    {
+      "id": "generate",
+      "lane": "rag",
+      "col": 4,
+      "type": "backend",
+      "label": "授权证据生成",
+      "sublabel": "历史复核 / 引用编号",
+      "width": 145
+    },
+    {
+      "id": "output",
+      "lane": "end",
+      "col": 5,
+      "type": "database",
+      "label": "持久事件与终态",
+      "sublabel": "先持久后发送",
+      "width": 145
+    },
+    {
+      "id": "direct",
+      "lane": "fast",
+      "col": 4,
+      "type": "backend",
+      "label": "标准答案直出",
+      "sublabel": "无生成调用 / 来源复核",
+      "width": 145
+    }
+  ],
+  "edges": [
+    {
+      "id": "request-faq",
+      "from": "request",
+      "to": "faq",
+      "role": "main"
+    },
+    {
+      "id": "faq-direct",
+      "from": "faq",
+      "to": "direct",
+      "role": "branch",
+      "label": "授权命中"
+    },
+    {
+      "id": "faq-recall",
+      "from": "faq",
+      "to": "recall",
+      "role": "main",
+      "label": "未命中"
+    },
+    {
+      "id": "recall-filter",
+      "from": "recall",
+      "to": "filter",
+      "role": "main"
+    },
+    {
+      "id": "filter-rank",
+      "from": "filter",
+      "to": "rank",
+      "role": "main",
+      "label": "存在可读证据"
+    },
+    {
+      "id": "rank-generate",
+      "from": "rank",
+      "to": "generate",
+      "role": "main",
+      "label": "证据充分"
+    },
+    {
+      "id": "generate-output",
+      "from": "generate",
+      "to": "output",
+      "role": "main"
+    },
+    {
+      "id": "direct-output",
+      "from": "direct",
+      "to": "output",
+      "role": "branch",
+      "label": "答案事件"
+    }
+  ],
+  "mainPath": [
+    "request",
+    "faq",
+    "recall",
+    "filter",
+    "rank",
+    "generate",
+    "output"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "分流与统一收尾",
+      "items": [
+        "部分受限仍用有权证据回答，并追加不含标题/ID的固定提示。",
+        "拒答、缺口、错误与统一终态的完整分流见图 07。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "异常与检索窗口",
+      "items": [
+        "各依赖故障进入失败终态；无有效候选进入无证据分支。",
+        "候选窗口用尽不证明全库无资料；流式/重连安全详见图 05。"
+      ]
+    }
+  ]
+}

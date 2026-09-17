@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "D:\\codex\\deliverables\\kb-r3-diagrams\\src\\02-flow-ingest.json",
+  "output": "D:\\codex\\deliverables\\kb-r3-diagrams\\02-知识导入流程.html",
+  "specification": {
+    "sha256": "90e456bb7dee1dd63aab7d49ba9bf85060b526bfb5d7d5863532ddf1395f5bf9",
+    "bytes": 5146
+  },
+  "artifact": {
+    "sha256": "79eff617e278e2f0ef9207a8a193e8444d6fd4831af2087c7c12a0f1842f8da8",
+    "bytes": 731358
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

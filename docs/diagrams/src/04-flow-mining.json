@@ -1,0 +1,227 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "FAQ 沉淀与缺口闭环 · R3 设计",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "faq",
+      "label": "FAQ 挖掘与审核"
+    },
+    {
+      "id": "control",
+      "label": "失效与人工决策"
+    },
+    {
+      "id": "gap",
+      "label": "知识缺口与补充"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "logs",
+      "lane": "faq",
+      "col": 0,
+      "type": "database",
+      "label": "领取终态日志",
+      "sublabel": "log_id + pipeline_version",
+      "width": 145
+    },
+    {
+      "id": "cluster",
+      "lane": "faq",
+      "col": 1,
+      "type": "backend",
+      "label": "语义聚类与起草",
+      "sublabel": "频次 / 有效来源 / 短事务外",
+      "width": 145
+    },
+    {
+      "id": "candidate",
+      "lane": "faq",
+      "col": 2,
+      "type": "database",
+      "label": "推荐候选入库",
+      "sublabel": "候选与消费完成同事务",
+      "width": 145
+    },
+    {
+      "id": "review",
+      "lane": "faq",
+      "col": 3,
+      "type": "frontend",
+      "label": "人工编辑审核",
+      "sublabel": "知识管理员",
+      "width": 145
+    },
+    {
+      "id": "publish",
+      "lane": "faq",
+      "col": 4,
+      "type": "backend",
+      "label": "发布与内容缓存",
+      "sublabel": "每次命中来源 AND 授权",
+      "width": 145
+    },
+    {
+      "id": "invalid",
+      "lane": "control",
+      "col": 4,
+      "type": "security",
+      "label": "下线或失效",
+      "sublabel": "offline / stale / 重审",
+      "width": 145
+    },
+    {
+      "id": "reject",
+      "lane": "control",
+      "col": 3,
+      "type": "security",
+      "label": "驳回留档",
+      "sublabel": "rejected 不进入缓存",
+      "width": 145
+    },
+    {
+      "id": "gaps",
+      "lane": "gap",
+      "col": 0,
+      "type": "backend",
+      "label": "聚合知识缺口",
+      "sublabel": "正常无证据 / 低置信",
+      "width": 145
+    },
+    {
+      "id": "task",
+      "lane": "gap",
+      "col": 1,
+      "type": "backend",
+      "label": "创建补充任务",
+      "sublabel": "负责人 / 绑定缺口",
+      "width": 145
+    },
+    {
+      "id": "document",
+      "lane": "gap",
+      "col": 2,
+      "type": "backend",
+      "label": "补充文档入库",
+      "sublabel": "复用图 02 / 绑定新版本",
+      "width": 145
+    },
+    {
+      "id": "replay",
+      "lane": "gap",
+      "col": 3,
+      "type": "security",
+      "label": "原身份授权回放",
+      "sublabel": "验证命中新补知识",
+      "width": 145
+    },
+    {
+      "id": "close",
+      "lane": "gap",
+      "col": 4,
+      "type": "backend",
+      "label": "关闭缺口",
+      "sublabel": "证据留存 / 失败仍待处理",
+      "width": 145
+    }
+  ],
+  "edges": [
+    {
+      "id": "logs-cluster",
+      "from": "logs",
+      "to": "cluster",
+      "role": "main"
+    },
+    {
+      "id": "cluster-candidate",
+      "from": "cluster",
+      "to": "candidate",
+      "role": "main"
+    },
+    {
+      "id": "candidate-review",
+      "from": "candidate",
+      "to": "review",
+      "role": "main"
+    },
+    {
+      "id": "review-publish",
+      "from": "review",
+      "to": "publish",
+      "role": "main",
+      "label": "审核通过"
+    },
+    {
+      "id": "review-reject",
+      "from": "review",
+      "to": "reject",
+      "role": "error",
+      "label": "驳回",
+      "variant": "security"
+    },
+    {
+      "id": "publish-invalid",
+      "from": "publish",
+      "to": "invalid",
+      "role": "error",
+      "label": "来源变化 / 下线",
+      "variant": "security"
+    },
+    {
+      "id": "gaps-task",
+      "from": "gaps",
+      "to": "task",
+      "role": "main"
+    },
+    {
+      "id": "task-document",
+      "from": "task",
+      "to": "document",
+      "role": "main"
+    },
+    {
+      "id": "document-replay",
+      "from": "document",
+      "to": "replay",
+      "role": "main",
+      "label": "索引就绪"
+    },
+    {
+      "id": "replay-close",
+      "from": "replay",
+      "to": "close",
+      "role": "main",
+      "label": "验证通过"
+    }
+  ],
+  "mainPath": [
+    "logs",
+    "cluster",
+    "candidate",
+    "review",
+    "publish"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两条独立闭环",
+      "items": [
+        "缺口补档不直接注入 FAQ 缓存；FAQ 必须人工审核发布。",
+        "消费记录防晚提交漏读；不以最大日志 ID 作为唯一游标。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "复核和再审核",
+      "items": [
+        "缺口回放失败保持 processing；不得因新增任意文档自动关闭。",
+        "来源失效重审；撤权后缓存仍须拒绝，不能扩张 FAQ 权限。"
+      ]
+    }
+  ]
+}
