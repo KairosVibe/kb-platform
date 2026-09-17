@@ -23,7 +23,7 @@ PRD §1.2 第 2 条（任务状态机）。
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -32,10 +32,11 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.errors import TaskError
 from app.core.logging import ensure_request_id
 from app.core.response import BizError
 from app.db.base import utcnow
-from app.db.repository import Repository, UniqueViolationError
+from app.db.repository import Repository, UnitOfWork, UniqueViolationError
 from app.models import (
     IndexTask,
     KnowledgeUnit,
@@ -43,15 +44,17 @@ from app.models import (
     UploadBatch,
     UploadItem,
 )
-from app.tasks.lease import MAX_ATTEMPTS
+from app.providers import embedding as embedding_provider
+from app.tasks.lease import MAX_ATTEMPTS, TaskLease, renew_lease
+from app.tasks.parsing import PARSER_VERSION, clean_text, parse_document, split_text
+from app.tasks.version_store import activate_version, upsert_version
 
 #: 批量上限（API-CONTRACTS §3："暂定100文件/200MiB"，为首版设计初值，可配置）。
 BATCH_MAX_FILES = 100
 BATCH_MAX_TOTAL_MB = 200
 
-#: 解析器版本。★ H19 尚未实现，这是**占位值**；H19 落地时必须更新，
-#: 并定义"同一 file_key 在新解析器下是否需要重建版本"的语义。
-PARSER_VERSION = "h19.r0"
+#: 瞬时失败后的重排延迟（F-03.04："瞬时错误retry_wait"；由 H14 到期重试）。
+_RETRY_DELAY = timedelta(minutes=1)
 
 
 # ---------------------------------------------------------------- 内部工具
@@ -464,10 +467,202 @@ async def recover_tasks(
     return {"requeued": requeued, "superseded": superseded, "failed": failed}
 
 
+# ---------------------------------------------------------------- F-03.04
+
+
+async def _set_stage(session: AsyncSession, lease: TaskLease, stage: str) -> None:
+    """阶段推进（短事务、条件于租约）。stage 与 status 正交（PRD §1.2 第 2 条）。"""
+    async with UnitOfWork(session).transaction():
+        await session.execute(
+            update(IndexTask)
+            .where(
+                IndexTask.id == lease.task_id,
+                IndexTask.lease_token == lease.lease_token,
+                IndexTask.status == "running",
+            )
+            .values(stage=stage)
+        )
+
+
+async def _terminate(
+    session: AsyncSession, lease: TaskLease, status: str, error_code: str, settings: Any
+) -> dict[str, Any]:
+    """以**条件更新**收敛任务终态。
+
+    ★ 条件里带 `lease_token`：若租约已易主（recover 回收后另有人领取），行数=0，
+      什么都不写——**不持有租约的一方无权写任务状态**（H15"失败停止写入和提交"）。
+    """
+    values: dict[str, Any] = {
+        "status": status,
+        "error_code": error_code,
+        "stage": None,
+        "lease_token": None,
+        "lease_until": None,
+        "worker_id": None,
+        "revision": IndexTask.revision + 1,
+    }
+    values["next_retry_at"] = (
+        utcnow() + _RETRY_DELAY if status == "retry_wait" else None
+    )
+    async with UnitOfWork(session).transaction():
+        result = await session.execute(
+            update(IndexTask)
+            .where(
+                IndexTask.id == lease.task_id,
+                IndexTask.lease_token == lease.lease_token,
+                IndexTask.status == "running",
+            )
+            .values(**values)
+        )
+        applied = result.rowcount == 1
+    if applied:
+        _log(
+            session, None, f"ingest.pipeline.{status}", "index_task", lease.task_id,
+            None, {"error_code": error_code},
+        )
+    return {"status": status, "indexed_version": None, "error_code": error_code}
+
+
+async def run_pipeline(session: AsyncSession, *, task_id: int, lease_token: UUID) -> dict[str, Any]:
+    """F-03.04：执行索引任务（H19→H20→H21→H11→H16→H17，中途 H15 续租）。
+
+    ★ 调用方**不得**把本函数包进外层大事务：续租与阶段推进必须即时可见，
+      否则双 worker 防护失效（见 version_store 模块注释）。本函数自开短事务。
+
+    ★ 所有终态写入都**条件于租约**——任何时候发现租约不属于自己，立即停止，
+      不写任何状态。瞬时错误 → retry_wait（H14 到期重试）；永久错误 → failed。
+    """
+    settings = get_settings()
+    task = await Repository(session, IndexTask).get(task_id)
+    if task is None:
+        raise TaskError("TASK_MISSING", "任务不存在", transient=False)
+    if task.status != "running" or task.lease_token != lease_token:
+        raise TaskError("LEASE_INVALID", "租约不匹配或已失效", transient=True)
+
+    lease = TaskLease(
+        task_id=task_id,
+        lease_token=lease_token,
+        lease_until=task.lease_until,
+        worker_id=task.worker_id or "pipeline",
+        target_version=int(task.target_version),
+    )
+    unit = await Repository(session, KnowledgeUnit).get(int(task.unit_id))
+    if unit is None or unit.is_deleted:
+        return await _terminate(session, lease, "superseded", "TARGET_GONE", settings)
+    if int(unit.content_version) != int(task.target_version):
+        return await _terminate(session, lease, "superseded", "SUPERSEDED", settings)
+
+    version_row = (
+        await session.execute(
+            select(KnowledgeVersion).where(
+                KnowledgeVersion.unit_id == int(task.unit_id),
+                KnowledgeVersion.version == int(task.target_version),
+            )
+        )
+    ).scalars().first()
+    if version_row is None:
+        return await _terminate(
+            session, lease, "failed", "VERSION_RECORD_MISSING", settings
+        )
+
+    warnings: list[str] = []
+    try:
+        # ---- 解析 / 清洗 / 切片（H19→H20→H21，纯计算）----
+        await _set_stage(session, lease, "parsing")
+        path = Path(settings.upload_dir) / version_row.file_key
+        raw_text, locations = parse_document(path, unit.format)
+        cleaned, locations, warnings = clean_text(raw_text, locations)
+        chunk_config = version_row.chunk_config or {}
+        chunks = split_text(
+            cleaned,
+            locations,
+            int(chunk_config.get("size", 500)),
+            int(chunk_config.get("overlap", 50)),
+        )
+        if not chunks:
+            raise TaskError("PARSE_EMPTY", "清洗后没有可索引切片", transient=False)
+
+        # ---- 向量化（H11，外部副作用）----
+        if not await renew_lease(
+            session, task_id=task_id, lease_token=lease_token, now=utcnow()
+        ):
+            raise TaskError("LEASE_LOST", "租约已易主，停止写入", transient=True)
+        await _set_stage(session, lease, "embedding")
+        texts = [str(chunk["text"]) for chunk in chunks]
+        vectors, _usage, model_version = await embedding_provider.embed_batches(texts, settings)
+        if model_version != version_row.embedding_model_version:
+            # ★ 比较对象必须是**版本记录**里声明的空间标识，而不是当前配置——
+            #   后者与 H11 同源（恒等，是无效守卫）。真正要拦的是"这次算出来的向量
+            #   与建版本时声明的不属同一空间"，那会污染整个 collection（PRD BC-09.02）。
+            raise TaskError(
+                "EMBED_MODEL_DRIFT",
+                f"本次向量化空间标识 {model_version!r} != 版本记录 "
+                f"{version_row.embedding_model_version!r}，必须换代际重建",
+                transient=False,
+            )
+
+        # ---- 持久化与向量写入（H16，外部副作用 + 短事务）----
+        if not await renew_lease(
+            session, task_id=task_id, lease_token=lease_token, now=utcnow()
+        ):
+            raise TaskError("LEASE_LOST", "租约已易主，停止写入", transient=True)
+        await _set_stage(session, lease, "indexing")
+        expected, written, verified = await upsert_version(
+            session,
+            unit_id=int(task.unit_id),
+            version=int(task.target_version),
+            chunks=[{**chunk, "vector": vector} for chunk, vector in zip(chunks, vectors)],
+            lease=lease,
+            config=settings,
+        )
+        if not verified:
+            raise TaskError(
+                "VECTOR_WRITE_MISMATCH",
+                f"向量核对失败：期望 {expected}，写入 {written}",
+                transient=True,
+            )
+    except TaskError as exc:
+        # 瞬时 → retry_wait（保留 attempts 历史，H14 到期重试）；永久 → failed。
+        return await _terminate(
+            session, lease, "retry_wait" if exc.transient else "failed", exc.code, settings
+        )
+
+    activated, reason = await activate_version(
+        session,
+        unit_id=int(task.unit_id),
+        version=int(task.target_version),
+        lease=lease,
+    )
+    if not activated:
+        return await _terminate(
+            session,
+            lease,
+            "superseded" if reason == "superseded" else "failed",
+            reason.upper(),
+            settings,
+        )
+
+    _log(
+        session, None, "ingest.pipeline.succeeded", "index_task", task_id,
+        None,
+        {
+            "indexed_version": int(task.target_version),
+            "chunks": len(chunks),
+            "warnings": warnings,
+        },
+    )
+    return {
+        "status": "succeeded",
+        "indexed_version": int(task.target_version),
+        "error_code": None,
+    }
+
+
 __all__ = [
     "accept_batch",
     "accept_upload",
     "get_task",
     "recover_tasks",
     "retry_task",
+    "run_pipeline",
 ]

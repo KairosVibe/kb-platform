@@ -28,6 +28,12 @@ greenlet==3.3.0
 PyJWT==2.10.1
 bcrypt==5.0.0
 
+# ---- 文档解析（M03 H19；版本为本机实测值 2026-09-17）----
+#   PDF 用 pypdf（纯 Python、可读加密标记）；DOCX 用 python-docx。
+#   DashScope 调用走 httpx（OpenAI 兼容模式 REST），不引入 dashscope SDK。
+pypdf==6.6.0
+python-docx==1.2.0
+
 # ---- 测试 ----
 pytest==9.0.3
 httpx==0.28.1
