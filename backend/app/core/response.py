@@ -95,6 +95,17 @@ ERROR_CODES: dict[str, tuple[int, str]] = {
     "USER_DUPLICATE": (status.HTTP_409_CONFLICT, "用户名已存在"),
     "SELF_LOCK": (status.HTTP_409_CONFLICT, "不能停用或删除最后一个系统管理账号"),
     "SESSION_BUSY": (status.HTTP_409_CONFLICT, "该会话已有进行中的提问"),
+    # ---- 幂等键复用 409（API-CONTRACTS §1"同键不同载荷 409"）----
+    "IDEMPOTENCY_CONFLICT": (
+        status.HTTP_409_CONFLICT,
+        "该幂等键已被其他内容使用，请更换后重试",
+    ),
+    # ---- 任务状态 409（API-CONTRACTS §1"409 幂等/版本/状态冲突"；
+    #      F-03.05 边界"运行中409；已删或被替代任务409"）----
+    "TASK_STATE_CONFLICT": (
+        status.HTTP_409_CONFLICT,
+        "任务当前状态不允许该操作，请刷新后查看",
+    ),
     "REINDEX_REQUIRED": (
         status.HTTP_409_CONFLICT,
         "embedding 模型已变更，需重建索引后才能生效",

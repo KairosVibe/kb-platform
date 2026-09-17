@@ -56,6 +56,21 @@ def require_permission(code: str) -> Callable[..., Awaitable[None]]:
     return _dependency
 
 
+def require_any_permission(*codes: str) -> Callable[..., Awaitable[None]]:
+    """H02 的"任一"变体：命中任一功能码即放行（如 F-03.03 的 `kb:view` 或 `kb:upload`）。
+
+    ★ 与 `require_permission` 同样返回依赖函数，语义差异只有一个：
+      全部未命中才 403。**"任一"不等于放宽**——它仍然要求显式声明允许的码集合，
+      未列出的码不会被意外放行。
+    """
+
+    async def _dependency(ctx: UserCtx = Depends(get_current_ctx)) -> None:
+        if not any(code in ctx.permission_codes for code in codes):
+            raise BizError("PERM_DENIED")
+
+    return _dependency
+
+
 def client_ip(request: Request) -> str:
     """取客户端 IP，用于登录限流。
 

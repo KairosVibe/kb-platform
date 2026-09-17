@@ -45,6 +45,11 @@ EXPECTED_PATHS = {
     "/api/roles/{role_id}",
     "/api/directory",
     "/api/permission-codes",
+    # M03 文档导入与任务（F-03.01/F-03.02/F-03.03/F-03.05；F-03.06 为内部调度无路由）
+    "/api/uploads",
+    "/api/upload-batches",
+    "/api/index-tasks/{task_id}",
+    "/api/index-tasks/{task_id}/retry",
 }
 
 

@@ -14,6 +14,7 @@ import os
 from fastapi import FastAPI
 
 from app.api.routes.auth import router as auth_router
+from app.api.routes.ingest import router as ingest_router
 from app.api.routes.org import router as org_router
 from app.core.config import get_settings
 from app.core.response import ok, register_exception_handlers
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(auth_router, prefix=settings.api_prefix)
     app.include_router(org_router, prefix=settings.api_prefix)
+    app.include_router(ingest_router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["运维"], summary="存活与版本")
     async def health() -> dict[str, object]:
