@@ -1,4 +1,4 @@
-﻿﻿# Sync VM clock from host (run on the Windows dev machine).
+﻿# Sync VM clock from host (run on the Windows dev machine).
 # Purpose: fix clock drift after VM suspend/resume (observed up to 16h drift).
 # The VM has no working chronyd and NTP egress is unreliable, so we push the
 # host's UTC time over SSH and write it to the hardware clock.
