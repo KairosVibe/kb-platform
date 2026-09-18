@@ -9,7 +9,8 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import type { UploadFile } from 'element-plus'
 import { Key, Refresh, Search, Upload } from '@element-plus/icons-vue'
 import * as knowledgeApi from '@/api/knowledge'
 import { ApiError } from '@/api/client'
@@ -198,6 +199,118 @@ function openAcl(unit: KnowledgeUnit): void {
   aclVisible.value = true
 }
 
+/* ---------- 替换文档与切片编辑（联调第 3 轮补齐） ---------- */
+
+const pendingFile = ref<File | null>(null)
+const replacing = ref(false)
+const mutating = ref(false)
+
+/** 替换/切片编辑后 revision 已推进：重载台账并把抽屉目标换成新行（保持抽屉开着）。 */
+async function reloadTarget(): Promise<void> {
+  await load()
+  if (detailTarget.value) {
+    const row = items.value.find((i) => i.id === detailTarget.value!.id)
+    if (row) detailTarget.value = row
+  }
+}
+
+function onReplaceUploadChange(file: UploadFile): void {
+  pendingFile.value = (file.raw as File | undefined) ?? null
+}
+
+async function doReplace(): Promise<void> {
+  if (!detailTarget.value || !pendingFile.value) return
+  replacing.value = true
+  try {
+    const res = await knowledgeApi.replaceDocument(
+      detailTarget.value.id,
+      pendingFile.value,
+      detailTarget.value.revision,
+    )
+    ElMessage.success(`已生成新版本 v${res.target_version}，等待索引完成后生效`)
+    pendingFile.value = null
+    await reloadTarget()
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 409) {
+      const refresh = await toast.confirmRevisionConflict()
+      if (refresh) await reloadTarget()
+      return
+    }
+    toast.error(err, '替换失败')
+  } finally {
+    replacing.value = false
+  }
+}
+
+async function runMutation(payload: {
+  chunk_id: number
+  action: 'edit' | 'split' | 'delete'
+  text?: string
+  split_offset?: number
+}): Promise<boolean> {
+  if (!detailTarget.value) return false
+  mutating.value = true
+  try {
+    const res = await knowledgeApi.mutateChunks(detailTarget.value.id, {
+      ...payload,
+      expected_revision: detailTarget.value.revision,
+    })
+    ElMessage.success(`已登记编辑（新版本 v${res.target_version}），等待重新索引`)
+    detailTarget.value.index_status = 'pending'
+    await reloadTarget()
+    await loadChunks()
+    return true
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 409) {
+      const refresh = await toast.confirmRevisionConflict()
+      if (refresh) {
+        await reloadTarget()
+        await loadChunks()
+      }
+      return false
+    }
+    toast.error(err, '切片编辑失败')
+    return false
+  } finally {
+    mutating.value = false
+  }
+}
+
+async function editChunk(c: ChunkRow): Promise<void> {
+  let value: string
+  try {
+    const r = await ElMessageBox.prompt('编辑切片正文（保存后生成新版本并重新索引）', '切片编辑', {
+      inputValue: c.text,
+      inputType: 'textarea',
+      inputValidator: (v: string) => (v.trim().length > 0 ? true : '内容不能为空'),
+    })
+    value = r.value
+  } catch {
+    return // 用户取消
+  }
+  await runMutation({ chunk_id: c.chunk_id, action: 'edit', text: value })
+}
+
+async function splitChunk(c: ChunkRow): Promise<void> {
+  let value: number
+  try {
+    const r = await ElMessageBox.prompt(
+      '输入拆分偏移（1 到文本长度之间的码点位置）',
+      '切片拆分',
+      { inputValidator: (v: string) => (/^\d+$/.test(v) && Number(v) > 0 && Number(v) < c.text.length) || `需要 1–${c.text.length - 1} 的整数` },
+    )
+    value = Number(r.value)
+  } catch {
+    return
+  }
+  await runMutation({ chunk_id: c.chunk_id, action: 'split', split_offset: value })
+}
+
+async function deleteChunk(c: ChunkRow): Promise<void> {
+  if (!(await toast.confirm('删除该切片？删除后生成新版本并重新索引。'))) return
+  await runMutation({ chunk_id: c.chunk_id, action: 'delete' })
+}
+
 watch(detailVisible, (open) => {
   if (!open) {
     chunks.value = []
@@ -335,6 +448,25 @@ onMounted(() => {
             <el-button type="primary" @click="saveMetadata">保存元数据</el-button>
             <el-button v-if="canPerm" :icon="Key" @click="openAcl(detailTarget)">四维权限</el-button>
           </el-form-item>
+          <el-form-item v-if="canEdit" label="替换文档">
+            <el-upload
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".md,.txt,.pdf,.docx"
+              :on-change="onReplaceUploadChange"
+            >
+              <el-button :icon="Refresh">选择新文件{{ pendingFile ? `：${pendingFile.name}` : '' }}</el-button>
+            </el-upload>
+            <el-button
+              type="warning"
+              :loading="replacing"
+              :disabled="!pendingFile"
+              style="margin-left: var(--kb-sp-3)"
+              @click="doReplace"
+            >
+              替换并重建索引
+            </el-button>
+          </el-form-item>
         </el-form>
 
         <el-divider content-position="left">正文切片</el-divider>
@@ -349,6 +481,11 @@ onMounted(() => {
               <span class="kb-faint">版本 {{ c.version }}</span>
               <span class="kb-faint">
                 {{ c.page_no !== null ? `第 ${c.page_no} 页` : c.offset >= 0 ? `偏移 ${c.offset}` : '页级/段级定位' }}
+              </span>
+              <span v-if="canEdit" style="margin-left: auto">
+                <el-button text size="small" :disabled="mutating" @click="editChunk(c)">编辑</el-button>
+                <el-button text size="small" :disabled="mutating" @click="splitChunk(c)">拆分</el-button>
+                <el-button text size="small" type="danger" :disabled="mutating" @click="deleteChunk(c)">删除</el-button>
               </span>
             </div>
             <p class="kb-chunk__text">{{ c.text }}</p>
