@@ -209,8 +209,8 @@ onMounted(() => {
       </div>
       <div class="kb-toolbar">
         <el-radio-group v-model="range">
-          <el-radio-button label="day">日</el-radio-button>
-          <el-radio-button label="week">周</el-radio-button>
+          <el-radio-button value="day">日</el-radio-button>
+          <el-radio-button value="week">周</el-radio-button>
         </el-radio-group>
         <el-date-picker v-model="anchorDate" type="date" value-format="YYYY-MM-DD" :clearable="false" style="width: 150px" />
         <el-select v-model="topN" style="width: 120px">

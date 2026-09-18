@@ -168,6 +168,12 @@ async function retryTask(row: Row): Promise<void> {
 }
 
 async function startUpload(): Promise<void> {
+  // ★ category 是受理契约的必填字段（F-03.01，API-CONTRACTS §8；实测漏填 → 422
+  //   INVALID_ARGUMENT 原始字段名直出）。前端先拦，给出可操作的提示。
+  if (!category.value.trim()) {
+    ElMessage.warning('请先填写分类（导入必填，如“人事制度”）')
+    return
+  }
   const pending = rows.value.filter((r) => r.state === 'pending' || r.state === 'failed')
   if (pending.length === 0) {
     ElMessage.info('没有待上传的文件')
@@ -263,7 +269,7 @@ function stopPolling(): void {
   <el-drawer v-model="visible" title="导入知识" size="720px" :before-close="beforeClose">
     <div class="kb-upload">
       <div class="kb-upload__row">
-        <el-input v-model="category" placeholder="分类（可选，最长 100 字符）" maxlength="100" clearable style="max-width: 320px" />
+        <el-input v-model="category" placeholder="分类（必填，最长 100 字符）" maxlength="100" clearable style="max-width: 320px" />
         <el-button @click="fileInput?.click()">选择文件</el-button>
         <el-button @click="dirInput?.click()">选择文件夹</el-button>
         <el-button v-if="rows.length" @click="clearAll">清空清单</el-button>

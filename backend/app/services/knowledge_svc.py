@@ -768,6 +768,10 @@ async def list_acl_entities(
     """F-04.09：权限弹窗的实体选择（kb:perm）。最小字段，不返回非必要资料。"""
     _check_paging(page, size)
     q = _norm_q(q)
+    # ★ 契约 kind:str 无枚举；前端语义化发 `department`（AclDialog），兼容简写 `dept`。
+    #   浏览器 E2E 实测：前端发 department 时部门实体选择器 422（kind 只认 dept）。
+    if kind == "department":
+        kind = "dept"
     if kind not in ("dept", "role", "user"):
         raise BizError("INVALID_ARGUMENT", f"kind 必须为 dept/role/user，当前 {kind!r}")
 

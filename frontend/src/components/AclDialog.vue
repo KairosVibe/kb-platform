@@ -52,6 +52,11 @@ watch(
     if (!open) return
     await reload()
   },
+  // ★ immediate 必须加：父组件 `v-if="aclTarget"` + `v-model="aclVisible"` 同 tick
+  //   挂载时 modelValue 初始即 true，非 immediate 的 watch 永不触发 → readAcl
+  //   回填从不发生 → revision 停在 0，保存必然 409（真实浏览器 E2E 实测抓到，
+  //   集成测试只测 API 层覆盖不到这类挂载时序）。
+  { immediate: true },
 )
 
 async function reload(): Promise<void> {

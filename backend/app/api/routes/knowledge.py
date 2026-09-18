@@ -199,7 +199,7 @@ async def update_acl(
 async def list_acl_entities(
     session: Annotated[AsyncSession, Depends(get_session)],
     ctx: Annotated[UserCtx, Depends(get_current_ctx)],
-    kind: str = Query(..., pattern="^(dept|role|user)$"),
+    kind: str = Query(..., pattern="^(dept|department|role|user)$"),
     q: str = "",
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),

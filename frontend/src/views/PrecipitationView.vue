@@ -268,8 +268,8 @@ onMounted(() => {
           <div class="kb-panel__head">
             <div class="kb-toolbar">
               <el-radio-group :model-value="faqStatus" @change="(v: string | number | boolean | undefined) => switchFaqStatus(v as 'candidate' | 'published')">
-                <el-radio-button label="candidate">候选</el-radio-button>
-                <el-radio-button label="published">已发布</el-radio-button>
+                <el-radio-button value="candidate">候选</el-radio-button>
+                <el-radio-button value="published">已发布</el-radio-button>
               </el-radio-group>
               <el-input
                 v-model="faqQuery"
