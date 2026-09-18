@@ -308,22 +308,23 @@ export interface DashboardSummary {
   unknown_usage_count: number
 }
 
-/** get_charts 字段见 FUNCTION-MAP §1；服务端已按 Asia/Shanghai 分桶 */
+/**
+ * get_charts 返回形状（2026-09-17 对齐后端 metrics_svc.get_charts 实测实现）：
+ * 服务端已按 Asia/Shanghai 分桶；knowledge_heat 的 count 是"每轮去重引用"（请求×单元只计一次）。
+ */
 export interface DashboardCharts {
   traffic: Array<{ date: string; pv: number; uv: number }>
-  questions: Array<{ key: string; label: string; count: number }>
-  knowledge_heat: Array<{ key: string; label: string; count: number }>
+  questions: Array<{ question: string; count: number }>
+  knowledge_heat: Array<{ unit_id: number; title: string; count: number }>
   usage: Array<{
-    date: string
-    prompt_tokens?: number
-    completion_tokens?: number
-    embedding_tokens?: number
-    rerank_units?: number
-    unknown_count?: number
-    [k: string]: unknown
+    kind: string
+    calls: number
+    input_tokens: number
+    output_tokens: number
+    unknown: number
   }>
-  latency: Array<{ result_type: string; lower_ms: number; upper_ms: number | null; count: number }>
-  knowledge_counts: { total?: number; enabled?: number; indexed?: number; [k: string]: unknown }
+  latency: Array<{ status: string; count: number; avg_ms: number; max_ms: number }>
+  knowledge_counts: { total: number; enabled: number; indexed: number }
 }
 
 export interface AuditRow {

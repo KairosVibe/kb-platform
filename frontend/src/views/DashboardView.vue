@@ -101,14 +101,13 @@ const usageOption = computed<EChartsOption>(() => {
     tooltip: { trigger: 'axis' },
     legend: { bottom: 0 },
     grid: { left: 56, right: 16, top: 16, bottom: 44 },
-    xAxis: { type: 'category', data: data.map((d) => String(d.date)) },
+    xAxis: { type: 'category', data: data.map((d) => d.kind) },
     yAxis: { type: 'value' },
     series: [
-      { name: '生成 tokens', type: 'bar', stack: 'usage', data: data.map((d) => Number(d.prompt_tokens ?? 0) + Number(d.completion_tokens ?? 0)) },
-      { name: 'embedding tokens', type: 'bar', stack: 'usage', data: data.map((d) => Number(d.embedding_tokens ?? 0)) },
-      { name: 'rerank units', type: 'bar', stack: 'usage', data: data.map((d) => Number(d.rerank_units ?? 0)) },
+      { name: '输入 tokens', type: 'bar', stack: 'usage', data: data.map((d) => Number(d.input_tokens)) },
+      { name: '输出 tokens', type: 'bar', stack: 'usage', data: data.map((d) => Number(d.output_tokens)) },
       // unknown 在堆叠图中单独成段，且固定使用中性灰，不与已知值混色
-      { name: '未知用量', type: 'bar', stack: 'usage', data: data.map((d) => Number(d.unknown_count ?? 0)) },
+      { name: '未知用量调用数', type: 'bar', stack: 'usage', data: data.map((d) => Number(d.unknown)) },
     ],
   }
 })
@@ -116,24 +115,30 @@ const usageOption = computed<EChartsOption>(() => {
 const latencyOption = computed<EChartsOption>(() => {
   const data = charts.value?.latency ?? []
   return {
-    tooltip: { trigger: 'axis' },
-    grid: { left: 48, right: 16, top: 16, bottom: 44 },
-    xAxis: {
-      type: 'category',
-      data: data.map((d) => `${d.lower_ms}—${d.upper_ms === null ? '∞' : d.upper_ms} ms`),
-      axisLabel: { rotate: 30 },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: unknown) => {
+        const p = Array.isArray(params) ? params[0] : params
+        const index = Number((p as { dataIndex?: number }).dataIndex ?? 0)
+        const row = data[index]
+        return row
+          ? `${row.status}<br/>均值 ${row.avg_ms} ms / 最大 ${row.max_ms} ms / 共 ${row.count} 次`
+          : ''
+      },
     },
+    grid: { left: 64, right: 16, top: 16, bottom: 44 },
+    xAxis: { type: 'category', data: data.map((d) => d.status), axisLabel: { rotate: 30 } },
     yAxis: { type: 'value' },
-    series: [{ type: 'bar', data: data.map((d) => d.count), barMaxWidth: 24 }],
+    series: [{ name: '平均耗时 (ms)', type: 'bar', data: data.map((d) => d.avg_ms), barMaxWidth: 24 }],
   }
 })
 
 const countsOption = computed<EChartsOption>(() => {
-  const c = charts.value?.knowledge_counts ?? {}
+  const c = charts.value?.knowledge_counts ?? { total: 0, enabled: 0, indexed: 0 }
   const rows = [
-    { name: '未删除', value: Number(c.total ?? 0) },
-    { name: '已启用', value: Number(c.enabled ?? 0) },
-    { name: '已索引', value: Number(c.indexed ?? 0) },
+    { name: '未删除', value: Number(c.total) },
+    { name: '已启用', value: Number(c.enabled) },
+    { name: '已索引', value: Number(c.indexed) },
   ]
   return {
     tooltip: { trigger: 'item' },
@@ -248,14 +253,14 @@ onMounted(() => {
             <section class="kb-panel">
               <div class="kb-panel__head"><span class="kb-panel__title">高频问题</span></div>
               <div class="kb-panel__body">
-                <EChart :option="barOption(charts?.questions ?? [])" />
-                <p class="kb-card__hint">只显示你本人提问与脱敏主题计数；知识标题仅在你有读权时显示，否则合并为「受限知识」。</p>
+                <EChart :option="barOption((charts?.questions ?? []).map((q) => ({ label: q.question, count: q.count })))" />
+                <p class="kb-card__hint">按规范化问题聚合计数；只显示运营侧统计，不含受限答案内容。</p>
               </div>
             </section>
 
             <section class="kb-panel">
               <div class="kb-panel__head"><span class="kb-panel__title">引用热度</span></div>
-              <div class="kb-panel__body"><EChart :option="barOption(charts?.knowledge_heat ?? [])" /></div>
+              <div class="kb-panel__body"><EChart :option="barOption((charts?.knowledge_heat ?? []).map((h) => ({ label: h.title, count: h.count })))" /></div>
             </section>
 
             <section class="kb-panel">
@@ -267,7 +272,7 @@ onMounted(() => {
             </section>
 
             <section class="kb-panel">
-              <div class="kb-panel__head"><span class="kb-panel__title">延迟分布（首字 / 终态分桶）</span></div>
+              <div class="kb-panel__head"><span class="kb-panel__title">延迟分布（按终态均值 ms）</span></div>
               <div class="kb-panel__body"><EChart :option="latencyOption" /></div>
             </section>
 

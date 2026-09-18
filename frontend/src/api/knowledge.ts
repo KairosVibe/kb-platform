@@ -38,6 +38,21 @@ export function readChunks(
   return apiRequest<PageResult<ChunkRow>>(`/knowledge-units/${unitId}/chunks`, { query })
 }
 
+/** F-04.04 POST /api/knowledge-units/{id}/versions —— 替换文档（multipart，生成新版本+索引任务） */
+export function replaceDocument(
+  unitId: number,
+  file: File,
+  expectedRevision: number,
+): Promise<{ task_id: number; target_version: number }> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('expected_revision', String(expectedRevision))
+  return apiRequest(`/knowledge-units/${unitId}/versions`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
 /** F-04.05 切片编辑/拆分/删除 —— action 与 text/split_offset 互斥使用 */
 export function mutateChunks(
   unitId: number,

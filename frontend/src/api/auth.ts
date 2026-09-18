@@ -12,6 +12,16 @@ export function login(payload: LoginRequest): Promise<TokenPair> {
   })
 }
 
+/** F-01.02 POST /api/auth/refresh —— 刷新并原子轮换（旧 refresh 立即失效） */
+export function refresh(refreshToken: string): Promise<TokenPair> {
+  return apiRequest<TokenPair>('/auth/refresh', {
+    method: 'POST',
+    body: { refresh_token: refreshToken },
+    skipAuth: true,
+    noRefresh: true,
+  })
+}
+
 /** F-01.03 POST /api/auth/logout —— 会话级撤销，注销后 access token 立即失效（依赖服务端 sid 校验） */
 export function logout(refreshToken: string): Promise<LogoutResult> {
   return apiRequest<LogoutResult>('/auth/logout', {
