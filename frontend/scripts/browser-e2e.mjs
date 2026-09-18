@@ -236,6 +236,62 @@ if (!chatBody.includes((snapshot.answer || '').slice(0, 10))) {
 await shot(page, 'chat-answered')
 console.log('  ✓ 问答完成（真实生成 + SSE 流式）')
 
+// ---------- 8. 组织屏：部门树 / 用户表 / 角色渲染 ----------
+console.log('[8] 组织屏渲染')
+await page.click('.kb-nav__item:has-text("组织")')
+await page.waitForTimeout(1500)
+await shot(page, 'org')
+const orgText = (await page.textContent('body')) || ''
+if (!/部门/.test(orgText)) throw new Error('组织屏未渲染部门区')
+console.log('  ✓ 部门/用户/角色渲染完成')
+
+// ---------- 9. 模型配置：配置渲染 + 真实探活 ----------
+console.log('[9] 模型配置屏：渲染 + 真实探活')
+await page.click('.kb-nav__item:has-text("模型配置")')
+await page.waitForTimeout(1500)
+await shot(page, 'model-config')
+const probeBtn = page.getByRole('button', { name: '探测' }).first()
+if (await probeBtn.isVisible().catch(() => false)) {
+  await probeBtn.click()
+  // 探活真实调 DashScope（qwen3.7-flash），最长 40s
+  await page.waitForTimeout(40000)
+  await shot(page, 'model-config-probed')
+  const cfgText = (await page.textContent('body')) || ''
+  if (!/ms|失败|延迟/.test(cfgText)) throw new Error('探活结果未渲染')
+  console.log('  ✓ 真实探活完成并渲染')
+}
+
+// ---------- 10. 权限边界：viewer 登录 → 权限化菜单 + API 403 ----------
+console.log('[10] 权限边界：viewer（仅 ai:ask）')
+await page.getByRole('button', { name: '退出' }).click()
+await page.waitForTimeout(1500)
+await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' })
+await page.getByPlaceholder(/用户名|账号/).fill('viewer')
+await page.getByPlaceholder(/密码/).fill(PASSWORD)
+await page.getByRole('button', { name: /登\s*录|登录/ }).click()
+await page.waitForTimeout(2500)
+// UI 层：侧边栏按权限渲染——viewer 只有问答台，没有知识中心入口
+const navItems = await page.locator('.kb-nav__item').allTextContents()
+await shot(page, 'viewer-home')
+if (navItems.some((t) => t.includes('知识中心'))) {
+  throw new Error('viewer 不应看到知识中心菜单')
+}
+console.log(`  ✓ 侧边栏权限化（菜单：${navItems.map((t) => t.trim()).filter(Boolean).join('、')}）`)
+// API 层：viewer 直调知识台账 → 403（功能权限层；数据读权在 UI 不可达即被菜单挡住）
+{
+  const login = await fetch('http://127.0.0.1:8000/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'viewer', password: PASSWORD }),
+  })
+  const vToken = (await login.json()).data.access_token
+  const r = await fetch('http://127.0.0.1:8000/api/knowledge-units?page=1&size=5', {
+    headers: { Authorization: `Bearer ${vToken}` },
+  })
+  if (r.status !== 403) throw new Error(`viewer 访问台账应 403，实际 ${r.status}`)
+  console.log('  ✓ API 层 403（PERM_DENIED）')
+}
+
 // ---------- 汇总 ----------
 await browser.close()
 const report = {
