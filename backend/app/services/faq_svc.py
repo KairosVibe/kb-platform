@@ -596,6 +596,10 @@ async def list_faqs(
             "frequency": int(r.frequency),
             "confidence": float(r.confidence) if r.confidence is not None else None,
             "source_refs": source_map.get(int(r.id), []),
+            # ★ 2026-09-18 契约增补：F-06.02/03/04/05 都要求 expected_revision，
+            #   列表不回 revision 则审核员的第二笔操作必然 409——审核场景的
+            #   并发编辑是常态，列表行必须携带乐观锁版本。
+            "revision": int(r.revision),
             # faq 表无命中计数列（DATA-CONTRACTS §2 无 hit_count）；问答侧命中
             # 统计在 qa_audit（无 faq 关联），属看板指标——不伪造该数，记 0。
             "hit_count": 0,

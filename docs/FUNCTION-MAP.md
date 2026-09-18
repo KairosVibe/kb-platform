@@ -1813,7 +1813,7 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
   - **边界/失败**：不显示创建者超管例外。
 
 - **H34 faq_store.list_faqs**
-  - **签名**：`faq_store.list_faqs(ctx:UserCtx,status:str|null,q:str,page:int,size:int) -> items:list[{id:int,question:str,answer:str,status:str,frequency:int,confidence:float,source_refs:list[SourceRef],hit_count:int}],total:int`。
+  - **签名**：`faq_store.list_faqs(ctx:UserCtx,status:str|null,q:str,page:int,size:int) -> items:list[{id:int,question:str,answer:str,status:str,frequency:int,confidence:float,source_refs:list[SourceRef],revision:int,hit_count:int}],total:int`（2026-09-18 契约增补 `revision`：F-06.02—05 均需 expected_revision，审核员第二笔操作不能靠 409 重试拿版本）。
   - **职责**：检查faq:review或publish及全部来源读权。
   - **输入**：ctx:UserCtx,status:str|null,q:str,page:int,size:int；类型见§1。
   - **输出**：items:list[{id:int,question:str,answer:str,status:str,frequency:int,confidence:float,source_refs:list[SourceRef],hit_count:int}],total:int。

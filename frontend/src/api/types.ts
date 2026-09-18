@@ -233,6 +233,8 @@ export interface FaqRow {
   frequency: number
   confidence: number
   source_refs: SourceRef[]
+  /** 2026-09-18 契约增补：F-06.02—05 均需 expected_revision，列表行必须携带 */
+  revision: number
   hit_count: number
 }
 

@@ -230,6 +230,9 @@ def test_h34_list_faqs_filters_by_source_read_access(clean_db: None) -> None:
                 {"unit_id": unit_id, "version": 1, "chunk_id": None}
             ]
             assert row["frequency"] == 3
+            # 契约增补（2026-09-18）：列表行携带乐观锁版本，F-06.02—05 的
+            # expected_revision 来源；审核员第二笔操作不靠 409 重试。
+            assert row["revision"] == 1
             assert row["hit_count"] == 0  # 命中计数组件未建，不伪造
 
             still_hidden_admin = await client.get("/api/faqs", headers=_auth(admin))

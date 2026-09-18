@@ -119,7 +119,7 @@ function editFaq(row: FaqRow): void {
         question,
         answer,
         source_ids: sourceIds,
-        expected_revision: 1,
+        expected_revision: row.revision,
       })
       ElMessage.success('候选已保存')
       await loadFaqs()
@@ -132,7 +132,7 @@ function editFaq(row: FaqRow): void {
 async function publish(row: FaqRow): Promise<void> {
   if (!(await toast.confirm('发布后该 FAQ 可在授权问答中直出，且必须逐个来源都可读。确认发布？'))) return
   try {
-    await faqApi.publishFaq(row.id, 1)
+    await faqApi.publishFaq(row.id, row.revision)
     ElMessage.success('已发布')
     await loadFaqs()
   } catch (err) {
@@ -144,7 +144,7 @@ async function changeStatus(row: FaqRow, action: 'reject' | 'offline' | 'resubmi
   const reason = window.prompt('原因（1—1000 字符）', '')
   if (reason === null) return
   try {
-    await faqApi.changeFaqStatus(row.id, { action, reason, expected_revision: 1 })
+    await faqApi.changeFaqStatus(row.id, { action, reason, expected_revision: row.revision })
     ElMessage.success('状态已更新')
     await loadFaqs()
   } catch (err) {
@@ -154,7 +154,7 @@ async function changeStatus(row: FaqRow, action: 'reject' | 'offline' | 'resubmi
 
 async function toggleCache(row: FaqRow): Promise<void> {
   try {
-    const res = await faqApi.setCacheEnabled(row.id, true, 1)
+    const res = await faqApi.setCacheEnabled(row.id, true, row.revision)
     ElMessage.success(`缓存开关已更新，审核状态仍为 ${res.status}`)
     await loadFaqs()
   } catch (err) {
