@@ -51,3 +51,14 @@ General-PurposeRAG是可运行基线与组件复用候选；原目录当前保�
 当前仍为文档确认阶段，尚不进入业务开发。
 
 本轮结果与未验证项见 [文档审查记录](docs/DOCUMENT-REVIEW.md)；权限代码差异见 [权限契约审计](docs/PERMISSION-CONTRACT-AUDIT.md)。
+
+---
+
+## 公开范围说明
+
+本仓为**知识管理与 AI 问答平台**的主工程（ackend/ FastAPI + rontend/ Vue3 + docs/ 契约文档）。
+
+- docs/ 中的 REUSE_* 与部分文档提及的参考工程（General-PurposeRAG/、aseline-b1/）为**第三方代码与内部隔离副本，不在本公开仓范围内**。
+- 历史提交经过过滤（git-filter-repo），仅保留主工程路径；本地开发仓另有完整历史。
+- 部署配置（ackend/.env、各 .env.development）只提交不含密钥的模板；所有密钥由运行时注入。
+- 面试与个人复盘类文档（docs/INTERVIEW.md、docs/LESSONS.md、docs/ECOSYSTEM-RESEARCH.md、docs/WORKLOG.md）为内部文档，不在公开范围。
