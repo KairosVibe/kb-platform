@@ -1606,6 +1606,7 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
 
 - **H18 tasks.cleanup_deleted**
   - **签名**：`tasks.cleanup_deleted(unit_id:int,deletion_id:int) -> removed:int,status:str,error_code:str|null`。
+  - **实现（2026-09-18 落地）**：`app/tasks/cleanup.py`——`cleanup_deleted`（契约函数）、`claim_cleanup_task`（单条条件 UPDATE 领取，租约与 IndexTask 同哲学，attempts 领取时递增）、`run_cleanup_due`（调度入口，F-03.06 循环/脚本调用）、`CleanupLease`（值类型）；向量侧承载 `vector_store.delete_unit_vectors`/`count_unit_vectors`（单元级过滤删除 + 期望值轮询核对）。**清理口径：只删派生物（Milvus 向量 + 受控存储文件），MySQL 的 unit/version/chunk 行保留墓碑态**——chunk 被 `message_source`（RESTRICT）引用，保留行使历史引用元数据永远可解析（"已发送内容无法撤回"）；共享文件引用未归零跳过删除（契约边界）。瞬时失败回 `queued` 重试，attempts 耗尽或墓碑缺失 → `failed`。
   - **职责**：确认墓碑。
   - **输入**：unit_id:int,deletion_id:int；类型见§1。
   - **输出**：removed:int,status:str,error_code:str|null。

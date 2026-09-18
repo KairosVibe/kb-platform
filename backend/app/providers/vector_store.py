@@ -181,3 +181,65 @@ def count_version_chunks(
         raise TaskError("VECTOR_QUERY_FAILED", f"向量计数失败：{exc}", transient=True) from exc
     finally:
         client.close()
+
+
+def count_unit_vectors(config: Any, *, unit_id: int, expected: int | None = None) -> int:
+    """统计某单元在向量库中的全部条数（不分版本，H18 清理核对的依据）。
+
+    带 `expected` 轮询的语义与 `count_version_chunks` 相同：Milvus Bounded
+    一致性下，删除后的"尚未可见"与"真的没删掉"必须靠期望值轮询区分。
+    """
+    import time
+
+    client = _connect(config)
+    try:
+        name = config.milvus_collection
+        if not client.has_collection(name):
+            return 0
+        count = 0
+        for attempt in range(6 if expected is not None else 1):
+            rows = client.query(
+                collection_name=name,
+                filter=f"unit_id == {unit_id}",
+                output_fields=["count(*)"],
+            )
+            count = int(rows[0]["count(*)"]) if rows else 0
+            if expected is None or count == expected:
+                return count
+            time.sleep(1.0 + attempt)
+        return count
+    except TaskError:
+        raise
+    except Exception as exc:
+        raise TaskError("VECTOR_QUERY_FAILED", f"向量计数失败：{exc}", transient=True) from exc
+    finally:
+        client.close()
+
+
+def delete_unit_vectors(config: Any, *, unit_id: int) -> int:
+    """删除某单元的全部向量（H18"清理版本向量"的向量侧）。
+
+    返回删除**前**统计的条数（Milvus delete 不返回删除数量）；调用方应再用
+    `count_unit_vectors(expected=0)` 核对归零。单元级过滤删除与写入侧的
+    "先删后插"同源，幂等。
+    """
+    client = _connect(config)
+    try:
+        name = config.milvus_collection
+        if not client.has_collection(name):
+            return 0
+        rows = client.query(
+            collection_name=name,
+            filter=f"unit_id == {unit_id}",
+            output_fields=["count(*)"],
+        )
+        total = int(rows[0]["count(*)"]) if rows else 0
+        if total:
+            client.delete(collection_name=name, filter=f"unit_id == {unit_id}")
+        return total
+    except TaskError:
+        raise
+    except Exception as exc:
+        raise TaskError("VECTOR_DELETE_FAILED", f"向量删除失败：{exc}", transient=True) from exc
+    finally:
+        client.close()
