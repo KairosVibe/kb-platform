@@ -1087,6 +1087,7 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
 - **F-07.02 gap_svc.list_gaps**
   - **名称/签名**：`list_gaps(ctx:UserCtx,status:str|null,dept_id:int|null,page:int,size:int)`。
   - **职责/来源**：缺口查询；US-07.02、AC-07.02-01/02/03。
+  - **实现（2026-09-18 联调第 2 轮落地）**：`gap_svc.list_supplement_tasks`（API-S05，`app/api/routes/gap.py` GET /api/supplement-tasks，gap:handle）——补档任务列表，`gap_id` 可选过滤；未绑定行 `unit_id/target_version` 为 null。
   - **输入**：ctx:UserCtx,status:str|null,dept_id:int|null,page:int,size:int。类型见§1；ID正整数，普通文本trim后校验，密码不trim不截断，可空仅标null字段。
   - **输出**：`{items:list[{id:int,question:str,dept_id:int|null,recent_frequency:int,max_similarity:float|null,suggested_category:str,last_seen_at:datetime,status:str}],total:int}`；list/iterator结果按上述原类型返回，不重复包对象。
   - **处理逻辑**：
@@ -1724,6 +1725,7 @@ R3 契约补齐：[API 契约](API-CONTRACTS.md)、[数据契约](DATA-CONTRACTS
 
 - **H27 chat_store.get_request**
   - **签名**：`chat_store.get_request(ctx:UserCtx,request_id:int) -> status:str,last_seq:int,answer:str|null,restricted:bool`。
+  - **实现（2026-09-18 联调第 2 轮落地）**：`chat_svc.get_request_snapshot`（`app/api/routes/chat.py` GET /api/chat/requests/{request_id}，ai:ask）。归属 404 防枚举；受限以**助手消息**的 restricted 标记为准，受限不返回正文——快照只给状态与游标，正文恢复走 events 重放。
   - **职责**：归属查询及来源复核，返回安全快照。
   - **输入**：ctx:UserCtx,request_id:int；类型见§1。
   - **输出**：status:str,last_seq:int,answer:str|null,restricted:bool。

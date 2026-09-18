@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
@@ -181,3 +181,91 @@ async def finalize_request(
                 {"status": result["status"], "result_type": result["result_type"]},
             )
     return {"request_id": request_id, "status": result["status"]}
+
+
+async def search_audit(
+    session: Any,
+    ctx: Any,
+    *,
+    request_id: int | None,
+    action: str | None,
+    page: int,
+    size: int,
+) -> dict[str, Any]:
+    """F-08.04：审计搜索（dashboard:view；读取本身留痕，FUNCTION-MAP F-08.04）。
+
+    ★ `request_id` 过滤的是**问答业务 ID**（`OperationLog.resource_type ==
+      'chat_request'` 的 `resource_id`），不是链路 trace_id（UUID）——两者同名
+      不同物（types.ts 传输层约定）。
+    ★ before/after 在写入时已脱敏（`_log` 契约：禁止传 ORM 行），审计行不含
+      问答正文——"指标权限不等于全文权限"由此成立，查询层不做二次裁剪。
+    """
+    from app.core.logging import ensure_request_id
+    from app.models import OperationLog
+
+    conditions = []
+    if request_id is not None:
+        conditions.append(OperationLog.resource_type == "chat_request")
+        conditions.append(OperationLog.resource_id == request_id)
+    if action:
+        conditions.append(OperationLog.action == action)
+
+    total = int(
+        (
+            await session.execute(
+                select(func.count()).select_from(OperationLog).where(*conditions)
+            )
+        ).scalar_one()
+    )
+    rows = (
+        (
+            await session.execute(
+                select(OperationLog)
+                .where(*conditions)
+                .order_by(OperationLog.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    items = [
+        {
+            "id": int(r.id),
+            "actor_id": int(r.actor_id) if r.actor_id is not None else None,
+            "action": r.action,
+            "resource_id": int(r.resource_id) if r.resource_id is not None else None,
+            "at": r.created_at,
+            "status": r.status,
+            "request_id": (
+                int(r.resource_id)
+                if r.resource_type == "chat_request" and r.resource_id is not None
+                else None
+            ),
+            "before": r.before,
+            "after": r.after,
+        }
+        for r in rows
+    ]
+    # "读取审计本身留痕"：一次查询登记一条 search 记录（动作与过滤条件，无正文）。
+    session.add(
+        OperationLog(
+            actor_id=int(ctx.user_id),
+            action="audit.search",
+            resource_type="audit",
+            resource_id=None,
+            trace_id=ensure_request_id(),
+            before=None,
+            after={
+                "filters": {
+                    "request_id": request_id,
+                    "action": action,
+                    "page": page,
+                    "size": size,
+                }
+            },
+            status="ok",
+        )
+    )
+    return {"items": items, "total": total}

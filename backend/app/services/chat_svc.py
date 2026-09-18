@@ -844,3 +844,33 @@ async def suggest(
         if len(items) >= limit:
             break
     return {"items": items}
+
+
+async def get_request_snapshot(
+    session: AsyncSession, ctx: UserCtx, *, request_id: int
+) -> dict[str, Any]:
+    """H27：请求安全快照（API-CONTRACTS §4 末行：`GET /api/chat/requests/{id}`→H27）。
+
+    归属：他人请求 404（`_require_owned_request`，防枚举）。
+    受限语义：以**助手消息**的 restricted 标记为准；受限时不返回正文——
+    快照只用于断线/410 恢复状态与游标，正文恢复走 events 重放。
+    """
+    request = await _require_owned_request(session, ctx, request_id)
+    restricted = request.result_type == "access_restricted"
+    answer: str | None = None
+    message = (
+        await session.execute(
+            select(ChatMessage)
+            .where(ChatMessage.request_id == request_id, ChatMessage.role == "assistant")
+            .order_by(ChatMessage.id.desc())
+        )
+    ).scalars().first()
+    if message is not None:
+        restricted = bool(message.restricted)
+        answer = None if message.restricted else message.text
+    return {
+        "status": request.status,
+        "last_seq": int(request.last_seq),
+        "answer": answer,
+        "restricted": restricted,
+    }

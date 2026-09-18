@@ -190,3 +190,15 @@ async def suggest(
     async with UnitOfWork(session).transaction():
         data = await chat_svc.suggest(session, ctx, prefix=prefix, limit=limit)
     return ok(data)
+
+
+@router.get("/chat/requests/{request_id}", dependencies=[Depends(require_permission("ai:ask"))])
+async def get_request_snapshot(
+    request_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    ctx: Annotated[UserCtx, Depends(get_current_ctx)],
+):
+    """H27：请求安全快照（410/断线恢复入口；他人 404 防枚举，受限不给正文）。"""
+    async with UnitOfWork(session).transaction():
+        data = await chat_svc.get_request_snapshot(session, ctx, request_id=request_id)
+    return ok(data)

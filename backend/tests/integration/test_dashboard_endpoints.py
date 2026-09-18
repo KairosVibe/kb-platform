@@ -145,15 +145,18 @@ async def _seed_with_data() -> dict[str, int]:
                      "st": status, "d": 500 + index * 250},
                 )
                 if index == 0:  # answered → generation 用量
+                    # ★ 不用 NOW(6)：DB 时钟与聚合的"上海当日"窗口可能漂移
+                    #   （VM 挂起后时钟停在挂起时刻，实测漂移 16h）——与上方
+                    #   chat_request/qa_audit 一致，统一用应用侧时钟参数。
                     await session.execute(
                         text(
                             "INSERT INTO model_call_usage (request_id, call_id, kind, "
                             "model_version, input_tokens, output_tokens, status, "
                             "created_at, updated_at) "
                             "VALUES (:r, :c, 'generation', 'qwen-plus', 100, 20, 'known', "
-                            "NOW(6), NOW(6))"
+                            ":t, :t)"
                         ),
-                        {"r": request_id, "c": uuid4().hex},
+                        {"r": request_id, "c": uuid4().hex, "t": accepted},
                     )
             return {"user_id": user_id}
     await engine.dispose()

@@ -408,3 +408,49 @@ async def verify_gap(session: AsyncSession, ctx: UserCtx, *, gap_id: int) -> dic
         "state": gap.status,
         "reason": None if passed else "补充版本未命中回放检索",
     }
+
+
+async def list_supplement_tasks(
+    session: AsyncSession, ctx: UserCtx, *, gap_id: int | None, page: int, size: int
+) -> dict[str, Any]:
+    """API-S05：补档任务列表（gap:handle；`gap_id` 可选过滤，补档绑定页轮询）。"""
+    _ = ctx  # 权限在路由层检查；列表不含正文，无数据读权要求
+    conditions = []
+    if gap_id is not None:
+        conditions.append(SupplementTask.gap_id == gap_id)
+    total = int(
+        (
+            await session.execute(
+                select(func.count()).select_from(SupplementTask).where(*conditions)
+            )
+        ).scalar_one()
+    )
+    rows = (
+        (
+            await session.execute(
+                select(SupplementTask)
+                .where(*conditions)
+                .order_by(SupplementTask.id.desc())
+                .offset((page - 1) * size)
+                .limit(size)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {
+        "items": [
+            {
+                "id": int(r.id),
+                "gap_id": int(r.gap_id),
+                "status": r.status,
+                "unit_id": int(r.unit_id) if r.unit_id is not None else None,
+                "target_version": (
+                    int(r.target_version) if r.target_version is not None else None
+                ),
+                "revision": int(r.revision),
+            }
+            for r in rows
+        ],
+        "total": total,
+    }

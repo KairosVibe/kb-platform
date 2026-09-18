@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_ctx, require_permission
+from app.api.deps import get_current_ctx, require_any_permission, require_permission
 from app.core.response import ok
 from app.db.repository import UnitOfWork
 from app.db.session import get_session
@@ -129,4 +129,22 @@ async def set_cache_enabled(
         data = await faq_svc.set_cache_enabled(
             session, ctx, faq_id=faq_id, enabled=body.enabled, expected_revision=body.expected_revision
         )
+    return ok(data)
+
+
+@router.get(
+    "/faqs",
+    dependencies=[Depends(require_any_permission("faq:review", "faq:publish"))],
+)
+async def list_faqs(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    ctx: Annotated[UserCtx, Depends(get_current_ctx)],
+    status: str | None = Query(None),
+    q: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+):
+    """H34：FAQ 候选/已发布列表（来源读权过滤在分页之前，总数不含无权行）。"""
+    async with UnitOfWork(session).transaction():
+        data = await faq_svc.list_faqs(session, ctx, status=status, q=q, page=page, size=size)
     return ok(data)

@@ -91,3 +91,17 @@ async def verify_gap(
     async with UnitOfWork(session).transaction():
         data = await gap_svc.verify_gap(session, ctx, gap_id=gap_id)
     return ok(data)
+
+
+@router.get("/supplement-tasks", dependencies=[Depends(require_permission("gap:handle"))])
+async def list_supplement_tasks(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    ctx: Annotated[UserCtx, Depends(get_current_ctx)],
+    gap_id: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+):
+    """API-S05：补档任务列表（补档绑定页轮询）。"""
+    async with UnitOfWork(session).transaction():
+        data = await gap_svc.list_supplement_tasks(session, ctx, gap_id=gap_id, page=page, size=size)
+    return ok(data)

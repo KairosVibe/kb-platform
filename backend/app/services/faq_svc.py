@@ -537,3 +537,69 @@ async def invalidate_sources(session: AsyncSession, *, unit_id: int, change: str
         staled = int(result.rowcount)
     # ACL 变化 → 无缓存层可逐出（匹配时逐次复核 DB 权威）；相关输出取消属后续能力。
     return {"staled": staled, "evicted": 0, "cancelled": 0}
+
+
+async def list_faqs(
+    session: AsyncSession,
+    ctx: Any,
+    *,
+    status: str | None,
+    q: str | None,
+    page: int,
+    size: int,
+) -> dict[str, Any]:
+    """H34：FAQ 列表（faq:review 或 faq:publish，路由层 require_any_permission）。
+
+    ★ **来源读权过滤在分页之前**（"不先分页再过滤造成总数泄露"）：候选全量
+      拉出后批量 H04 `authorize_units` 判定，`total` = 过滤后实数。FAQ 总量由
+      审核流约束、全量内存判定可接受；量大时需改为可下推的授权子查询。
+    """
+    conditions = []
+    if status:
+        conditions.append(Faq.status == status)
+    if q:
+        conditions.append(Faq.question.like(f"%{q}%"))
+    rows = (
+        (await session.execute(select(Faq).where(*conditions).order_by(Faq.id.desc())))
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return {"items": [], "total": 0}
+
+    source_map: dict[int, list[dict[str, Any]]] = {}
+    unit_ids: set[int] = set()
+    src_rows = (
+        await session.execute(
+            select(FaqSource).where(FaqSource.faq_id.in_([int(r.id) for r in rows]))
+        )
+    ).scalars().all()
+    for src in src_rows:
+        source_map.setdefault(int(src.faq_id), []).append(
+            {"unit_id": int(src.unit_id), "version": int(src.version), "chunk_id": None}
+        )
+        unit_ids.add(int(src.unit_id))
+
+    allowed, _, _, _ = await authorize_units(session, ctx, sorted(unit_ids))
+    allowed_set = set(allowed)
+    visible = [
+        r for r in rows if {s["unit_id"] for s in source_map.get(int(r.id), [])} <= allowed_set
+    ]
+    total = len(visible)
+    start = (page - 1) * size
+    items = [
+        {
+            "id": int(r.id),
+            "question": r.question,
+            "answer": r.answer,
+            "status": r.status,
+            "frequency": int(r.frequency),
+            "confidence": float(r.confidence) if r.confidence is not None else None,
+            "source_refs": source_map.get(int(r.id), []),
+            # faq 表无命中计数列（DATA-CONTRACTS §2 无 hit_count）；问答侧命中
+            # 统计在 qa_audit（无 faq 关联），属看板指标——不伪造该数，记 0。
+            "hit_count": 0,
+        }
+        for r in visible[start:start + size]
+    ]
+    return {"items": items, "total": total}

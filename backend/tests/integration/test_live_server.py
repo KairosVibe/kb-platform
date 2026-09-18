@@ -65,25 +65,29 @@ EXPECTED_PATHS = {
     "/api/sessions/{session_id}",
     "/api/sessions/{session_id}/messages",
     "/api/chat/requests",
+    "/api/chat/requests/{request_id}",
     "/api/chat/requests/{request_id}/events",
     "/api/chat/requests/{request_id}/cancel",
     "/api/chat/requests/{request_id}/citations/{no}",
     "/api/chat/suggestions",
-    # M07 知识缺口闭环（F-07.02/03/04 + API-S06；F-07.01 为内部消费者无路由）
+    # M07 知识缺口闭环（F-07.02/03/04 + API-S05/S06；F-07.01 为内部消费者无路由）
     "/api/knowledge-gaps",
     "/api/knowledge-gaps/{gap_id}/convert",
     "/api/knowledge-gaps/{gap_id}/verify",
+    "/api/supplement-tasks",
     "/api/supplement-tasks/{task_id}/source",
-    # M06 FAQ 沉淀审核与缓存（F-06.01—F-06.05；F-06.06/07 为内部函数）
+    # M06 FAQ 沉淀审核与缓存（F-06.01—F-06.05 + H34 列表；F-06.06/07 为内部函数）
+    "/api/faqs",
     "/api/mining/runs",
     "/api/mining/runs/{run_id}",
     "/api/faqs/{faq_id}/candidate",
     "/api/faqs/{faq_id}/publish",
     "/api/faqs/{faq_id}/status",
     "/api/faqs/{faq_id}/cache-enabled",
-    # M08 审计与数据看板（F-08.02/F-08.03）
+    # M08 审计与数据看板（F-08.02/F-08.03/F-08.04）
     "/api/dashboard/summary",
     "/api/dashboard/charts",
+    "/api/audit",
     # M09 模型配置与运行控制（F-09.01—F-09.04）
     "/api/model-config",
     "/api/model-config/probe",
