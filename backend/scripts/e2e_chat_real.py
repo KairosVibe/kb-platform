@@ -13,7 +13,7 @@ from uuid import uuid4
 sys.path.insert(0, "d:/zcode/实战项目1/backend")
 
 from sqlalchemy import text  # noqa: E402
-from sqlalchemy.ext.asyncio import async_sessionmaker  # noqa: E402
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
 from app.providers import vector_store  # noqa: E402
@@ -46,20 +46,35 @@ async def _run_one(task_id: int) -> str:
 
 
 def _sse_lines(resp_text: str) -> list[tuple[str, dict]]:
+    """解析 SSE 帧：seq 在 `id:` 行（游标），event/data 各一行（API-CONTRACTS §4）。"""
     events: list[tuple[str, dict]] = []
     for block in resp_text.split("\n\n"):
-        event, data = None, None
+        event, data, seq = None, None, None
         for line in block.splitlines():
             if line.startswith("event:"):
                 event = line.split(":", 1)[1].strip()
             elif line.startswith("data:"):
                 data = line.split(":", 1)[1].strip()
+            elif line.startswith("id:"):
+                seq = int(line.split(":", 1)[1].strip())
         if event and data:
-            events.append((event, json.loads(data)))
+            payload = json.loads(data)
+            if seq is not None:
+                payload["seq"] = seq
+            events.append((event, payload))
     return events
 
 
 async def main() -> None:
+    # ★ run_answer/stream_events 的后台引擎工厂默认连演示库（get_settings().database_url），
+    #   E2E 数据在集成库——与 test_chat_endpoints 同款做法，重定向到 IT 库。
+    import app.services.chat_svc as chat_svc_mod
+
+    def _it_engine_factory():
+        engine = make_engine()
+        return engine, async_sessionmaker(engine, expire_on_commit=False)
+
+    chat_svc_mod._engine_factory = _it_engine_factory
     engine0 = make_engine()
     try:
         await _truncate_all(engine0)
@@ -178,9 +193,9 @@ async def main() -> None:
         assert seqs == list(range(seqs[0], seqs[0] + len(seqs))), f"seq 不连续：{seqs}"
         for required in ("meta", "delta", "citations", "done"):
             assert required in names, f"缺少 {required} 事件（实际 {names}）"
-        delta_text = "".join(d.get("delta", "") for e, d in events if e == "delta")
+        delta_text = "".join(str(d.get("text", "")) for e, d in events if e == "delta")
         assert delta_text and delta_text in (snapshot["answer"] or "")
-        cits = next(d for e, d in events if e == "citations").get("citations", [])
+        cits = next(d for e, d in events if e == "citations").get("items", [])
         print(f"[4] SSE 事件 {len(events)} 帧（seq 连续），delta {len(delta_text)} 字，citations {len(cits)} 条")
 
         # [5] 引用详情（readCitation）
@@ -223,6 +238,12 @@ async def main() -> None:
         try:
             async with factory() as session:
                 async with session.begin():
+                    # ★ message_source.chunk_id → chunk 是 RESTRICT：被问答引用过的
+                    #   切片不能物理删（"已发送内容无法撤回"的 DB 层表达）；物理清理
+                    #   属 H18 执行器的职责。E2E 里先解除引用再删单元。
+                    await session.execute(
+                        text("DELETE FROM message_source WHERE unit_id=:u"), {"u": unit_id}
+                    )
                     await session.execute(
                         text("DELETE FROM knowledge_unit WHERE id=:u"), {"u": unit_id}
                     )
